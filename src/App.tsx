@@ -14,6 +14,7 @@ import { CreateChannelModal } from './components/modals/CreateChannelModal';
 import { CommunitySettingsModal } from './components/modals/CommunitySettingsModal';
 import { UserSettingsModal } from './components/modals/UserSettingsModal';
 import { QuickSwitcherModal } from './components/modals/QuickSwitcherModal';
+import { CreateGroupDMModal } from './components/modals/CreateGroupDMModal';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { CyberBootLoader } from './components/auth/CyberBootLoader';
 import { CheckCircle, Info, AlertTriangle } from 'lucide-react';
@@ -113,6 +114,7 @@ const NexoraApp: React.FC = () => {
       {activeModal === 'community_settings' && <CommunitySettingsModal />}
       {activeModal === 'user_settings' && <UserSettingsModal />}
       {activeModal === 'search' && <QuickSwitcherModal />}
+      {activeModal === 'create_group_dm' && <CreateGroupDMModal />}
 
       {/* Toast Notification Banner */}
       {toast && (

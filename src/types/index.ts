@@ -10,6 +10,7 @@ export interface User {
   avatar: string;
   bannerColor?: string;
   status: UserStatus;
+  lastSeenAt?: string;
   customStatus?: string;
   bio?: string;
   email?: string;
@@ -77,6 +78,7 @@ export interface Message {
   replyTo?: MessageReply;
   reactions: Reaction[];
   attachments?: Attachment[];
+  readBy?: string[]; // user IDs who have read this message
 }
 
 export interface CommunityMember {
@@ -105,11 +107,43 @@ export interface Community {
 
 export interface DMConversation {
   id: string;
+  isGroup?: boolean;
+  name?: string; // Group Name
+  avatar?: string; // Group custom avatar
+  ownerId?: string; // Creator / Owner for Group DMs
   participants: User[];
   lastMessage?: string;
   lastMessageTime?: string;
   unreadCount: number;
 }
+
+export interface FriendRequest {
+  id: string;
+  senderId: string;
+  sender: User;
+  receiverId: string;
+  receiver: User;
+  status: 'pending' | 'accepted' | 'rejected' | 'canceled';
+  createdAt: string;
+}
+
+export interface Friendship {
+  id: string;
+  userIds: [string, string];
+  friend: User; // Relative to current user
+  createdAt: string;
+  lastInteractionAt?: string;
+}
+
+export interface BlockedUser {
+  id: string;
+  blockerId: string;
+  blockedId: string;
+  blockedUser: User;
+  blockedAt: string;
+}
+
+export type FriendsTab = 'online' | 'all' | 'pending' | 'blocked' | 'add_friend';
 
 export interface AuditLogEntry {
   id: string;

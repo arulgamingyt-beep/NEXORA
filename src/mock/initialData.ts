@@ -1,4 +1,14 @@
-import { Community, User, Message, DMConversation, AuditLogEntry, CommunityInvite } from '../types';
+import {
+  Community,
+  User,
+  Message,
+  DMConversation,
+  AuditLogEntry,
+  CommunityInvite,
+  FriendRequest,
+  Friendship,
+  BlockedUser,
+} from '../types';
 
 export const CURRENT_USER: User = {
   id: 'user_alex',
@@ -453,9 +463,48 @@ export const INITIAL_MESSAGES: Record<string, Message[]> = {
       ],
     },
   ],
+  dm_group_core_ops: [
+    {
+      id: 'msg_grp_1',
+      dmConversationId: 'dm_group_core_ops',
+      authorId: 'user_alex',
+      authorName: 'Alex Rivera',
+      authorAvatar: CURRENT_USER.avatar,
+      authorRole: 'owner',
+      authorTag: CURRENT_USER.tag,
+      content: 'Welcome to the Cyber Ops Core Squad private channel operatives.',
+      timestamp: '10:40 AM',
+      reactions: [{ emoji: '🚀', count: 3, users: ['user_elena', 'user_marcus', 'user_sophia'] }],
+      readBy: ['user_alex', 'user_elena', 'user_marcus'],
+    },
+    {
+      id: 'msg_grp_2',
+      dmConversationId: 'dm_group_core_ops',
+      authorId: 'user_elena',
+      authorName: 'Elena Rostova',
+      authorAvatar: MOCK_USERS.user_elena.avatar,
+      authorRole: 'admin',
+      authorTag: MOCK_USERS.user_elena.tag,
+      content: 'Firewalls synced. We are ready for live multi-user verification.',
+      timestamp: '10:45 AM',
+      reactions: [{ emoji: '🛡️', count: 2, users: ['user_alex', 'user_marcus'] }],
+      readBy: ['user_alex', 'user_elena'],
+    },
+  ],
 };
 
 export const INITIAL_DM_CONVERSATIONS: DMConversation[] = [
+  {
+    id: 'dm_group_core_ops',
+    isGroup: true,
+    name: 'Cyber Ops Core Squad',
+    avatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80',
+    ownerId: 'user_alex',
+    participants: [CURRENT_USER, MOCK_USERS.user_elena, MOCK_USERS.user_marcus, MOCK_USERS.user_sophia],
+    lastMessage: 'Elena: Firewalls synced. We are ready for live multi-user verification.',
+    lastMessageTime: '10:45 AM',
+    unreadCount: 0,
+  },
   {
     id: 'dm_elena',
     participants: [CURRENT_USER, MOCK_USERS.user_elena],
@@ -478,6 +527,60 @@ export const INITIAL_DM_CONVERSATIONS: DMConversation[] = [
     unreadCount: 0,
   },
 ];
+
+export const INITIAL_FRIENDSHIPS: Friendship[] = [
+  {
+    id: 'friend_elena',
+    userIds: [CURRENT_USER.id, 'user_elena'],
+    friend: MOCK_USERS.user_elena,
+    createdAt: 'November 2026',
+    lastInteractionAt: '10:45 AM',
+  },
+  {
+    id: 'friend_marcus',
+    userIds: [CURRENT_USER.id, 'user_marcus'],
+    friend: MOCK_USERS.user_marcus,
+    createdAt: 'November 2026',
+    lastInteractionAt: 'Yesterday',
+  },
+  {
+    id: 'friend_sophia',
+    userIds: [CURRENT_USER.id, 'user_sophia'],
+    friend: MOCK_USERS.user_sophia,
+    createdAt: 'November 2026',
+    lastInteractionAt: '2 days ago',
+  },
+  {
+    id: 'friend_liam',
+    userIds: [CURRENT_USER.id, 'user_liam'],
+    friend: MOCK_USERS.user_liam,
+    createdAt: 'November 2026',
+    lastInteractionAt: '3 days ago',
+  },
+];
+
+export const INITIAL_FRIEND_REQUESTS: FriendRequest[] = [
+  {
+    id: 'freq_incoming_aria',
+    senderId: 'user_aria',
+    sender: MOCK_USERS.user_aria,
+    receiverId: CURRENT_USER.id,
+    receiver: CURRENT_USER,
+    status: 'pending',
+    createdAt: 'Today at 10:15 AM',
+  },
+  {
+    id: 'freq_outgoing_david',
+    senderId: CURRENT_USER.id,
+    sender: CURRENT_USER,
+    receiverId: 'user_david',
+    receiver: MOCK_USERS.user_david,
+    status: 'pending',
+    createdAt: 'Yesterday at 04:30 PM',
+  },
+];
+
+export const INITIAL_BLOCKED_USERS: BlockedUser[] = [];
 
 export const INITIAL_INVITES: CommunityInvite[] = [
   {

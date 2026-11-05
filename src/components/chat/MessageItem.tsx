@@ -12,6 +12,8 @@ import {
   Shield,
   Zap,
   Terminal,
+  Check,
+  CheckCheck,
 } from 'lucide-react';
 
 interface MessageItemProps {
@@ -354,6 +356,24 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
             <span className="text-[10px] text-slate-400 font-mono">
               {message.timestamp}
             </span>
+
+            {/* Read Receipt Indicator */}
+            {message.authorId === currentUser.id && (
+              <span
+                className="inline-flex items-center text-[10px] text-violet-400/80 font-mono ml-0.5"
+                title={
+                  message.readBy && message.readBy.length > 1
+                    ? `Read by ${message.readBy.length - 1} operative(s)`
+                    : 'Transmitted & delivered'
+                }
+              >
+                {message.readBy && message.readBy.length > 1 ? (
+                  <CheckCheck className="w-3.5 h-3.5 text-violet-400" />
+                ) : (
+                  <Check className="w-3.5 h-3.5 text-slate-500" />
+                )}
+              </span>
+            )}
 
             {message.pinned && (
               <span className="flex items-center gap-1 text-[9px] text-amber-300 bg-amber-500/10 px-1.5 py-0.2 rounded font-mono border border-amber-500/20">

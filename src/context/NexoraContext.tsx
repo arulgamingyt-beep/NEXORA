@@ -14,6 +14,10 @@ import {
   ChannelType,
   Attachment,
   Reaction,
+  FriendRequest,
+  Friendship,
+  BlockedUser,
+  FriendsTab,
 } from '../types';
 import {
   CURRENT_USER,
@@ -23,6 +27,9 @@ import {
   INITIAL_DM_CONVERSATIONS,
   INITIAL_INVITES,
   INITIAL_AUDIT_LOGS,
+  INITIAL_FRIENDSHIPS,
+  INITIAL_FRIEND_REQUESTS,
+  INITIAL_BLOCKED_USERS,
 } from '../mock/initialData';
 import { auth, db, googleProvider } from '../firebase';
 import {
@@ -69,6 +76,8 @@ export type ModalType =
   | 'community_settings'
   | 'create_community'
   | 'create_channel'
+  | 'create_group_dm'
+  | 'edit_group_dm'
   | 'invite'
   | 'join_invite'
   | 'search'
@@ -114,6 +123,30 @@ interface NexoraContextType {
   isCloudSyncing: boolean;
   connectionError: string | null;
 
+  // Friends & DM Extensions
+  friends: Friendship[];
+  friendRequests: FriendRequest[];
+  blockedUsers: BlockedUser[];
+  friendsTab: FriendsTab;
+  setFriendsTab: (tab: FriendsTab) => void;
+  typingUsers: Record<string, string[]>;
+  sendFriendRequest: (usernameOrTag: string) => { success: boolean; message: string };
+  acceptFriendRequest: (requestId: string) => void;
+  rejectFriendRequest: (requestId: string) => void;
+  cancelFriendRequest: (requestId: string) => void;
+  removeFriend: (friendUserId: string) => void;
+  blockUser: (targetUserId: string) => void;
+  unblockUser: (targetUserId: string) => void;
+  isUserBlocked: (targetUserId: string) => boolean;
+  isUserBlockedBy: (targetUserId: string) => boolean;
+  createGroupDM: (name: string, participantUserIds: string[], avatar?: string) => string;
+  updateGroupDM: (conversationId: string, updates: { name?: string; avatar?: string }) => void;
+  addGroupParticipant: (conversationId: string, userId: string) => void;
+  removeGroupParticipant: (conversationId: string, userId: string) => void;
+  leaveGroupDM: (conversationId: string) => void;
+  setTypingStatus: (conversationId: string, isTyping: boolean) => void;
+  markConversationAsRead: (conversationId: string) => void;
+
   // Actions & Auth
   loginWithEmail: (email: string, password: string) => Promise<void>;
   registerWithEmail: (email: string, password: string, username: string, avatarUrl?: string) => Promise<void>;
@@ -126,7 +159,7 @@ interface NexoraContextType {
   switchUser: (userId: string) => void;
   setActiveCommunity: (communityId: string | null) => void;
   setActiveChannel: (channelId: string) => void;
-  setActiveDM: (dmId: string) => void;
+  setActiveDM: (dmId: string | null) => void;
   openDMWithUser: (targetUserId: string) => void;
   sendMessage: (content: string, attachments?: Attachment[]) => void;
   editMessage: (messageId: string, newContent: string) => void;
@@ -207,6 +240,36 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY + '_dms');
     return saved ? JSON.parse(saved) : INITIAL_DM_CONVERSATIONS;
   });
+
+  const [friends, setFriends] = useState<Friendship[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY + '_friends');
+      return saved ? JSON.parse(saved) : INITIAL_FRIENDSHIPS;
+    } catch {
+      return INITIAL_FRIENDSHIPS;
+    }
+  });
+
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY + '_friend_requests');
+      return saved ? JSON.parse(saved) : INITIAL_FRIEND_REQUESTS;
+    } catch {
+      return INITIAL_FRIEND_REQUESTS;
+    }
+  });
+
+  const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY + '_blocked_users');
+      return saved ? JSON.parse(saved) : INITIAL_BLOCKED_USERS;
+    } catch {
+      return INITIAL_BLOCKED_USERS;
+    }
+  });
+
+  const [friendsTab, setFriendsTab] = useState<FriendsTab>('online');
+  const [typingUsers, setTypingUsers] = useState<Record<string, string[]>>({});
 
   const [communityInvites, setCommunityInvites] = useState<CommunityInvite[]>(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY + '_invites');
@@ -428,12 +491,25 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.setItem(LOCAL_STORAGE_KEY + '_messages', JSON.stringify(allMessages));
       localStorage.setItem(LOCAL_STORAGE_KEY + '_invites', JSON.stringify(communityInvites));
       localStorage.setItem(LOCAL_STORAGE_KEY + '_dms', JSON.stringify(dmConversations));
+      localStorage.setItem(LOCAL_STORAGE_KEY + '_friends', JSON.stringify(friends));
+      localStorage.setItem(LOCAL_STORAGE_KEY + '_friend_requests', JSON.stringify(friendRequests));
+      localStorage.setItem(LOCAL_STORAGE_KEY + '_blocked_users', JSON.stringify(blockedUsers));
       localStorage.setItem(LOCAL_STORAGE_KEY + '_user', JSON.stringify(currentUser));
       localStorage.setItem(LOCAL_STORAGE_KEY + '_channel_mutes', JSON.stringify(channelMutes));
     } catch (e) {
       console.warn('Storage sync error:', e);
     }
-  }, [communities, allMessages, communityInvites, dmConversations, currentUser, channelMutes]);
+  }, [
+    communities,
+    allMessages,
+    communityInvites,
+    dmConversations,
+    friends,
+    friendRequests,
+    blockedUsers,
+    currentUser,
+    channelMutes,
+  ]);
 
   // Real-time Cross-Tab synchronization listener (ensures 100% instant sync across tabs in local/vault mode)
   useEffect(() => {
@@ -715,20 +791,23 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const setActiveDM = (dmId: string) => {
+  const setActiveDM = (dmId: string | null) => {
     setActiveDMId(dmId);
     setActiveCommunityId(null);
     setActiveChannelId(null);
     setIsMobileChannelOpen(false);
-    // clear unread
-    setDmConversations((prev) =>
-      prev.map((dm) => (dm.id === dmId ? { ...dm, unreadCount: 0 } : dm))
-    );
+    if (dmId) {
+      markConversationAsRead(dmId);
+    }
   };
 
   const openDMWithUser = (targetUserId: string) => {
     if (targetUserId === currentUser.id) {
       showToast("You cannot start a direct message conversation with yourself.", "warning");
+      return;
+    }
+    if (isUserBlocked(targetUserId)) {
+      showToast("Cannot open transmission with a blocked operative.", "warning");
       return;
     }
     const targetUser = allUsers[targetUserId] || MOCK_USERS[targetUserId];
@@ -782,6 +861,17 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const feedKey = activeCommunityId ? activeChannelId : activeDMId;
     if (!feedKey) return;
 
+    if (activeDMId) {
+      const currentDM = dmConversations.find((d) => d.id === activeDMId);
+      if (currentDM && !currentDM.isGroup) {
+        const other = currentDM.participants.find((p) => p.id !== currentUser.id);
+        if (other && (isUserBlocked(other.id) || isUserBlockedBy(other.id))) {
+          showToast('You cannot send transmissions to a blocked operative.', 'warning');
+          return;
+        }
+      }
+    }
+
     const role = getCurrentUserRoleInActiveCommunity();
     const now = new Date();
     const timeString = `Today at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
@@ -808,6 +898,7 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         : undefined,
       reactions: [],
       attachments: attachments || [],
+      readBy: [currentUser.id],
     };
 
     // 1. Optimistic local state update
@@ -856,6 +947,7 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           replyTo: newMessage.replyTo || null,
           reactions: [],
           attachments: attachments || [],
+          readBy: [currentUser.id],
         });
       } else if (activeDMId) {
         const currentDM = dmConversations.find((d) => d.id === activeDMId);
@@ -886,11 +978,41 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           replyTo: newMessage.replyTo || null,
           reactions: [],
           attachments: attachments || [],
+          readBy: [currentUser.id],
         });
+
+        // Also sync to conversations collection
+        const convDocRef = doc(db, 'conversations', activeDMId);
+        await setDoc(
+          convDocRef,
+          {
+            id: activeDMId,
+            participantIds,
+            lastMessage: content.trim(),
+            lastMessageTime: timeString,
+          },
+          { merge: true }
+        ).catch(() => {});
+
+        const convMsgRef = doc(db, 'conversations', activeDMId, 'messages', messageDocId);
+        await setDoc(convMsgRef, {
+          id: messageDocId,
+          dmConversationId: activeDMId,
+          authorId: currentUser.id,
+          authorName: currentUser.displayName,
+          authorAvatar: currentUser.avatar,
+          authorRole: role,
+          authorTag: currentUser.tag,
+          content: content.trim(),
+          timestamp: timeString,
+          replyTo: newMessage.replyTo || null,
+          reactions: [],
+          attachments: attachments || [],
+          readBy: [currentUser.id],
+        }).catch(() => {});
       }
     } catch (err: any) {
       console.warn('Persistent message save notice:', err);
-      // Even if offline, the message remains preserved in local storage!
     }
   };
 
@@ -898,19 +1020,27 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const feedKey = activeCommunityId ? activeChannelId : activeDMId;
     if (!feedKey || !newContent.trim()) return;
 
+    const msg = (allMessages[feedKey] || []).find((m) => m.id === messageId);
+    if (!msg) return;
+
+    if (msg.authorId !== currentUser.id) {
+      showToast('You can only edit your own transmissions.', 'warning');
+      return;
+    }
+
     const editedAtTime = `Today at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 
     // 1. Optimistic update
     setAllMessages((prev) => ({
       ...prev,
-      [feedKey]: (prev[feedKey] || []).map((msg) =>
-        msg.id === messageId
+      [feedKey]: (prev[feedKey] || []).map((m) =>
+        m.id === messageId
           ? {
-              ...msg,
+              ...m,
               content: newContent.trim(),
               editedAt: editedAtTime,
             }
-          : msg
+          : m
       ),
     }));
     setEditingMessageId(null);
@@ -937,7 +1067,12 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         await updateDoc(dmMsgRef, {
           content: newContent.trim(),
           editedAt: editedAtTime,
-        });
+        }).catch(() => {});
+        const convMsgRef = doc(db, 'conversations', activeDMId, 'messages', messageId);
+        await updateDoc(convMsgRef, {
+          content: newContent.trim(),
+          editedAt: editedAtTime,
+        }).catch(() => {});
       }
     } catch (err: any) {
       console.warn('Firestore message edit update notice:', err);
@@ -948,10 +1083,27 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const feedKey = activeCommunityId ? activeChannelId : activeDMId;
     if (!feedKey) return;
 
+    const msg = (allMessages[feedKey] || []).find((m) => m.id === messageId);
+    if (!msg) return;
+
+    const isAuthor = msg.authorId === currentUser.id;
+    const isCommStaff =
+      activeCommunityId &&
+      (getCurrentUserRoleInActiveCommunity() === 'owner' ||
+        getCurrentUserRoleInActiveCommunity() === 'admin');
+    const isGroupOwner =
+      activeDMId &&
+      dmConversations.find((d) => d.id === activeDMId)?.ownerId === currentUser.id;
+
+    if (!isAuthor && !isCommStaff && !isGroupOwner) {
+      showToast('You lack clearance to delete this transmission.', 'warning');
+      return;
+    }
+
     // 1. Optimistic update
     setAllMessages((prev) => ({
       ...prev,
-      [feedKey]: (prev[feedKey] || []).filter((msg) => msg.id !== messageId),
+      [feedKey]: (prev[feedKey] || []).filter((m) => m.id !== messageId),
     }));
     showToast('Message deleted', 'warning');
 
@@ -970,7 +1122,9 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         await deleteDoc(msgRef);
       } else if (activeDMId) {
         const dmMsgRef = doc(db, 'dm_threads', activeDMId, 'messages', messageId);
-        await deleteDoc(dmMsgRef);
+        await deleteDoc(dmMsgRef).catch(() => {});
+        const convMsgRef = doc(db, 'conversations', activeDMId, 'messages', messageId);
+        await deleteDoc(convMsgRef).catch(() => {});
       }
     } catch (err: any) {
       console.warn('Firestore message delete notice:', err);
@@ -1824,6 +1978,491 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
+  // ==========================================
+  // MODULE 1 & 5: FRIEND & BLOCKING SYSTEM
+  // ==========================================
+
+  const isUserBlocked = (targetUserId: string): boolean => {
+    return blockedUsers.some(
+      (b) => b.blockerId === currentUser.id && b.blockedId === targetUserId
+    );
+  };
+
+  const isUserBlockedBy = (targetUserId: string): boolean => {
+    return blockedUsers.some(
+      (b) => b.blockerId === targetUserId && b.blockedId === currentUser.id
+    );
+  };
+
+  const sendFriendRequest = (usernameOrTag: string): { success: boolean; message: string } => {
+    const raw = usernameOrTag.trim().toLowerCase().replace(/^@/, '');
+    if (!raw) {
+      return { success: false, message: 'Please enter a username or operative tag.' };
+    }
+
+    // Search user in allUsers or MOCK_USERS
+    const targetUser = Object.values(allUsers).find((u) => {
+      const uName = u.username.toLowerCase();
+      const dName = u.displayName.toLowerCase();
+      const fullTag = `${u.username}${u.tag}`.toLowerCase();
+      return (
+        uName === raw ||
+        dName === raw ||
+        fullTag === raw ||
+        u.id.toLowerCase() === raw ||
+        u.tag.toLowerCase() === raw
+      );
+    });
+
+    if (!targetUser) {
+      return { success: false, message: 'Operative not found in the Nexora registry.' };
+    }
+
+    if (targetUser.id === currentUser.id) {
+      return { success: false, message: 'You cannot send a friend request to yourself.' };
+    }
+
+    // Check if blocked
+    if (isUserBlocked(targetUser.id) || isUserBlockedBy(targetUser.id)) {
+      return { success: false, message: 'Cannot send request: operative is blocked.' };
+    }
+
+    // Check if already friends
+    const alreadyFriends = friends.some((f) => f.userIds.includes(targetUser.id));
+    if (alreadyFriends) {
+      return { success: false, message: `You are already friends with ${targetUser.displayName}.` };
+    }
+
+    // Check if duplicate request
+    const existingPending = friendRequests.find(
+      (r) =>
+        r.status === 'pending' &&
+        ((r.senderId === currentUser.id && r.receiverId === targetUser.id) ||
+          (r.senderId === targetUser.id && r.receiverId === currentUser.id))
+    );
+
+    if (existingPending) {
+      if (existingPending.senderId === targetUser.id) {
+        // Mutual request -> auto accept
+        acceptFriendRequest(existingPending.id);
+        return {
+          success: true,
+          message: `Mutual request! You are now friends with ${targetUser.displayName}.`,
+        };
+      }
+      return { success: false, message: 'A friend request is already pending with this operative.' };
+    }
+
+    const newRequestId =
+      'freq_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+    const newRequest: FriendRequest = {
+      id: newRequestId,
+      senderId: currentUser.id,
+      sender: currentUser,
+      receiverId: targetUser.id,
+      receiver: targetUser,
+      status: 'pending',
+      createdAt: 'Just now',
+    };
+
+    setFriendRequests((prev) => [newRequest, ...prev]);
+
+    try {
+      setDoc(doc(db, 'friend_requests', newRequestId), {
+        id: newRequestId,
+        senderId: currentUser.id,
+        receiverId: targetUser.id,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      }).catch(() => {});
+    } catch {}
+
+    showToast(`Friend request transmitted to ${targetUser.displayName}!`, 'success');
+    return { success: true, message: `Friend request sent to ${targetUser.displayName}!` };
+  };
+
+  const acceptFriendRequest = (requestId: string) => {
+    const req = friendRequests.find((r) => r.id === requestId);
+    if (!req) return;
+
+    setFriendRequests((prev) =>
+      prev.map((r) => (r.id === requestId ? { ...r, status: 'accepted' } : r))
+    );
+
+    const otherUser = req.senderId === currentUser.id ? req.receiver : req.sender;
+    const friendshipId = 'fr_' + [currentUser.id, otherUser.id].sort().join('_');
+
+    const newFriendship: Friendship = {
+      id: friendshipId,
+      userIds: [currentUser.id, otherUser.id],
+      friend: otherUser,
+      createdAt: 'Just now',
+      lastInteractionAt: 'Just now',
+    };
+
+    setFriends((prev) => {
+      if (prev.some((f) => f.userIds.includes(otherUser.id))) return prev;
+      return [newFriendship, ...prev];
+    });
+
+    try {
+      updateDoc(doc(db, 'friend_requests', requestId), { status: 'accepted' }).catch(() => {});
+      setDoc(doc(db, 'friendships', friendshipId), {
+        id: friendshipId,
+        userIds: [currentUser.id, otherUser.id],
+        createdAt: new Date().toISOString(),
+      }).catch(() => {});
+    } catch {}
+
+    showToast(`You and ${otherUser.displayName} are now friends!`, 'success');
+  };
+
+  const rejectFriendRequest = (requestId: string) => {
+    setFriendRequests((prev) =>
+      prev.map((r) => (r.id === requestId ? { ...r, status: 'rejected' } : r))
+    );
+    try {
+      updateDoc(doc(db, 'friend_requests', requestId), { status: 'rejected' }).catch(() => {});
+    } catch {}
+    showToast('Friend request rejected', 'info');
+  };
+
+  const cancelFriendRequest = (requestId: string) => {
+    setFriendRequests((prev) => prev.filter((r) => r.id !== requestId));
+    try {
+      deleteDoc(doc(db, 'friend_requests', requestId)).catch(() => {});
+    } catch {}
+    showToast('Outgoing friend request canceled', 'info');
+  };
+
+  const removeFriend = (friendUserId: string) => {
+    const friendObj = friends.find((f) => f.userIds.includes(friendUserId))?.friend;
+    setFriends((prev) => prev.filter((f) => !f.userIds.includes(friendUserId)));
+    const friendshipId = 'fr_' + [currentUser.id, friendUserId].sort().join('_');
+    try {
+      deleteDoc(doc(db, 'friendships', friendshipId)).catch(() => {});
+    } catch {}
+    showToast(`Removed ${friendObj?.displayName || 'operative'} from friends list`, 'info');
+  };
+
+  const blockUser = (targetUserId: string) => {
+    if (targetUserId === currentUser.id) {
+      showToast('You cannot block yourself.', 'warning');
+      return;
+    }
+    const targetUser = allUsers[targetUserId] || MOCK_USERS[targetUserId];
+    if (!targetUser) return;
+
+    // Remove from friends
+    setFriends((prev) => prev.filter((f) => !f.userIds.includes(targetUserId)));
+    // Clear friend requests
+    setFriendRequests((prev) =>
+      prev.filter(
+        (r) =>
+          !(
+            (r.senderId === currentUser.id && r.receiverId === targetUserId) ||
+            (r.senderId === targetUserId && r.receiverId === currentUser.id)
+          )
+      )
+    );
+
+    const blockId = 'block_' + currentUser.id + '_' + targetUserId;
+    const newBlock: BlockedUser = {
+      id: blockId,
+      blockerId: currentUser.id,
+      blockedId: targetUserId,
+      blockedUser: targetUser,
+      blockedAt: 'Just now',
+    };
+
+    setBlockedUsers((prev) => {
+      if (prev.some((b) => b.blockedId === targetUserId)) return prev;
+      return [newBlock, ...prev];
+    });
+
+    try {
+      setDoc(doc(db, 'blocked_users', blockId), {
+        id: blockId,
+        blockerId: currentUser.id,
+        blockedId: targetUserId,
+        blockedAt: new Date().toISOString(),
+      }).catch(() => {});
+    } catch {}
+
+    showToast(`Blocked ${targetUser.displayName}. They can no longer transmit to you.`, 'warning');
+  };
+
+  const unblockUser = (targetUserId: string) => {
+    const block = blockedUsers.find((b) => b.blockedId === targetUserId);
+    setBlockedUsers((prev) => prev.filter((b) => b.blockedId !== targetUserId));
+    const blockId = 'block_' + currentUser.id + '_' + targetUserId;
+    try {
+      deleteDoc(doc(db, 'blocked_users', blockId)).catch(() => {});
+    } catch {}
+    showToast(`Unblocked ${block?.blockedUser.displayName || 'operative'}`, 'info');
+  };
+
+  // ==========================================
+  // MODULE 3: GROUP MESSAGING SYSTEM
+  // ==========================================
+
+  const createGroupDM = (name: string, participantUserIds: string[], avatar?: string): string => {
+    const validUsers = participantUserIds
+      .map((id) => allUsers[id] || MOCK_USERS[id])
+      .filter((u): u is User => Boolean(u && u.id !== currentUser.id));
+
+    if (validUsers.length === 0) {
+      showToast('Select at least one operative to form a group conversation.', 'warning');
+      return '';
+    }
+
+    const participants = [currentUser, ...validUsers];
+    const cleanName =
+      name.trim() ||
+      `Group: ${participants
+        .map((p) => p.displayName.split(' ')[0])
+        .slice(0, 3)
+        .join(', ')}${participants.length > 3 ? ` +${participants.length - 3}` : ''}`;
+
+    const newGroupId =
+      'dm_group_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+    const newGroupDM: DMConversation = {
+      id: newGroupId,
+      isGroup: true,
+      name: cleanName,
+      avatar:
+        avatar ||
+        'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80',
+      ownerId: currentUser.id,
+      participants,
+      lastMessage: 'Group conversation initialized',
+      lastMessageTime: 'Just now',
+      unreadCount: 0,
+    };
+
+    setDmConversations((prev) => [newGroupDM, ...prev]);
+
+    // Initial group broadcast message
+    const welcomeMsg: Message = {
+      id: 'msg_grp_welcome_' + Date.now(),
+      dmConversationId: newGroupId,
+      authorId: currentUser.id,
+      authorName: currentUser.displayName,
+      authorAvatar: currentUser.avatar,
+      authorRole: 'owner',
+      authorTag: currentUser.tag,
+      content: `👥 **${currentUser.displayName}** initialized the group **${cleanName}**. Welcome operatives!`,
+      timestamp: 'Just now',
+      reactions: [{ emoji: '🎉', count: 1, users: [currentUser.id] }],
+      readBy: [currentUser.id],
+    };
+
+    setAllMessages((prev) => ({
+      ...prev,
+      [newGroupId]: [welcomeMsg],
+    }));
+
+    setActiveCommunityId(null);
+    setActiveChannelId(null);
+    setActiveDMId(newGroupId);
+
+    try {
+      setDoc(doc(db, 'conversations', newGroupId), {
+        id: newGroupId,
+        isGroup: true,
+        name: cleanName,
+        avatar: newGroupDM.avatar,
+        ownerId: currentUser.id,
+        participantIds: participants.map((p) => p.id),
+        createdAt: new Date().toISOString(),
+        lastMessage: welcomeMsg.content,
+      }).catch(() => {});
+    } catch {}
+
+    closeModal();
+    showToast(`Group "${cleanName}" created!`, 'success');
+    return newGroupId;
+  };
+
+  const updateGroupDM = (conversationId: string, updates: { name?: string; avatar?: string }) => {
+    const group = dmConversations.find((d) => d.id === conversationId && d.isGroup);
+    if (!group) return;
+
+    if (group.ownerId !== currentUser.id) {
+      showToast('Only the Group Owner can edit group details.', 'warning');
+      return;
+    }
+
+    setDmConversations((prev) =>
+      prev.map((d) => (d.id === conversationId ? { ...d, ...updates } : d))
+    );
+
+    try {
+      updateDoc(doc(db, 'conversations', conversationId), updates).catch(() => {});
+    } catch {}
+
+    showToast('Group details updated', 'success');
+  };
+
+  const addGroupParticipant = (conversationId: string, userId: string) => {
+    const group = dmConversations.find((d) => d.id === conversationId && d.isGroup);
+    if (!group) return;
+
+    const userToAdd = allUsers[userId] || MOCK_USERS[userId];
+    if (!userToAdd) return;
+
+    if (group.participants.some((p) => p.id === userId)) {
+      showToast('Operative is already in this group.', 'info');
+      return;
+    }
+
+    const updatedParticipants = [...group.participants, userToAdd];
+    setDmConversations((prev) =>
+      prev.map((d) => (d.id === conversationId ? { ...d, participants: updatedParticipants } : d))
+    );
+
+    // Announce in chat
+    const sysMsg: Message = {
+      id: 'msg_sys_' + Date.now(),
+      dmConversationId: conversationId,
+      authorId: currentUser.id,
+      authorName: currentUser.displayName,
+      authorAvatar: currentUser.avatar,
+      authorRole: 'member',
+      authorTag: currentUser.tag,
+      content: `➕ **${userToAdd.displayName}** was added to the group by **${currentUser.displayName}**.`,
+      timestamp: 'Just now',
+      reactions: [],
+      readBy: [currentUser.id],
+    };
+
+    setAllMessages((prev) => ({
+      ...prev,
+      [conversationId]: [...(prev[conversationId] || []), sysMsg],
+    }));
+
+    try {
+      updateDoc(doc(db, 'conversations', conversationId), {
+        participantIds: updatedParticipants.map((p) => p.id),
+      }).catch(() => {});
+    } catch {}
+
+    showToast(`Added ${userToAdd.displayName} to group`, 'success');
+  };
+
+  const removeGroupParticipant = (conversationId: string, userId: string) => {
+    const group = dmConversations.find((d) => d.id === conversationId && d.isGroup);
+    if (!group) return;
+
+    if (group.ownerId !== currentUser.id && userId !== currentUser.id) {
+      showToast('Only the Group Owner can remove participants.', 'warning');
+      return;
+    }
+
+    const userToRemove = group.participants.find((p) => p.id === userId);
+    const updatedParticipants = group.participants.filter((p) => p.id !== userId);
+
+    setDmConversations((prev) =>
+      prev.map((d) => (d.id === conversationId ? { ...d, participants: updatedParticipants } : d))
+    );
+
+    // Announce
+    const sysMsg: Message = {
+      id: 'msg_sys_' + Date.now(),
+      dmConversationId: conversationId,
+      authorId: currentUser.id,
+      authorName: currentUser.displayName,
+      authorAvatar: currentUser.avatar,
+      authorRole: 'member',
+      authorTag: currentUser.tag,
+      content: `🚪 **${userToRemove?.displayName || 'Operative'}** was removed from the group.`,
+      timestamp: 'Just now',
+      reactions: [],
+      readBy: [currentUser.id],
+    };
+
+    setAllMessages((prev) => ({
+      ...prev,
+      [conversationId]: [...(prev[conversationId] || []), sysMsg],
+    }));
+
+    try {
+      updateDoc(doc(db, 'conversations', conversationId), {
+        participantIds: updatedParticipants.map((p) => p.id),
+      }).catch(() => {});
+    } catch {}
+
+    showToast(`Removed ${userToRemove?.displayName || 'participant'} from group`, 'info');
+  };
+
+  const leaveGroupDM = (conversationId: string) => {
+    const group = dmConversations.find((d) => d.id === conversationId && d.isGroup);
+    if (!group) return;
+
+    const remaining = group.participants.filter((p) => p.id !== currentUser.id);
+
+    if (remaining.length === 0) {
+      // Discard conversation
+      setDmConversations((prev) => prev.filter((d) => d.id !== conversationId));
+    } else {
+      // Transfer owner if current user was owner
+      const newOwnerId = group.ownerId === currentUser.id ? remaining[0].id : group.ownerId;
+      setDmConversations((prev) =>
+        prev.map((d) =>
+          d.id === conversationId
+            ? { ...d, participants: remaining, ownerId: newOwnerId }
+            : d
+        )
+      );
+    }
+
+    if (activeDMId === conversationId) {
+      setActiveDMId(null);
+    }
+
+    showToast('You have left the group conversation', 'info');
+  };
+
+  // ==========================================
+  // MODULE 4: PRESENCE & TYPING INDICATORS
+  // ==========================================
+
+  const setTypingStatus = (conversationId: string, isTyping: boolean) => {
+    setTypingUsers((prev) => {
+      const currentList = prev[conversationId] || [];
+      if (isTyping) {
+        if (!currentList.includes(currentUser.displayName)) {
+          return { ...prev, [conversationId]: [...currentList, currentUser.displayName] };
+        }
+        return prev;
+      } else {
+        return {
+          ...prev,
+          [conversationId]: currentList.filter((name) => name !== currentUser.displayName),
+        };
+      }
+    });
+  };
+
+  const markConversationAsRead = (conversationId: string) => {
+    setDmConversations((prev) =>
+      prev.map((d) => (d.id === conversationId ? { ...d, unreadCount: 0 } : d))
+    );
+    setAllMessages((prev) => {
+      const msgs = prev[conversationId] || [];
+      if (msgs.length === 0) return prev;
+      return {
+        ...prev,
+        [conversationId]: msgs.map((m) => {
+          if (!m.readBy?.includes(currentUser.id)) {
+            return { ...m, readBy: [...(m.readBy || []), currentUser.id] };
+          }
+          return m;
+        }),
+      };
+    });
+  };
+
   // AUTHENTICATION PROTOCOLS (Cloud Firebase Auth + Cryptographic Vault Fallback)
   const loginWithEmail = async (identifier: string, password: string) => {
     const cleanId = identifier.trim();
@@ -2216,6 +2855,30 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isFirestoreConnected,
         isCloudSyncing,
         connectionError,
+
+        // Friends, Groups & Blocking
+        friends,
+        friendRequests,
+        blockedUsers,
+        friendsTab,
+        setFriendsTab,
+        typingUsers,
+        sendFriendRequest,
+        acceptFriendRequest,
+        rejectFriendRequest,
+        cancelFriendRequest,
+        removeFriend,
+        blockUser,
+        unblockUser,
+        isUserBlocked,
+        isUserBlockedBy,
+        createGroupDM,
+        updateGroupDM,
+        addGroupParticipant,
+        removeGroupParticipant,
+        leaveGroupDM,
+        setTypingStatus,
+        markConversationAsRead,
         loginWithEmail,
         registerWithEmail,
         loginWithGoogle,

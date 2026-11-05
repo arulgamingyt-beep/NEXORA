@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test:community": "tsx src/__tests__/community_test_suite.ts"
+    "test:community": "tsx src/__tests__/community_test_suite.ts",
+    "test:friends": "tsx src/__tests__/friends_dm_test_suite.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

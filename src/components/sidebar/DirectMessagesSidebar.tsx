@@ -22,6 +22,8 @@ export const DirectMessagesSidebar: React.FC = () => {
     activeDMId,
     setActiveDM,
     communityInvites,
+    friends,
+    friendRequests,
     acceptInvite,
     declineInvite,
     openModal,
@@ -41,7 +43,26 @@ export const DirectMessagesSidebar: React.FC = () => {
       (!inv.targetUserId || inv.targetUserId === currentUser.id)
   );
 
+  const onlineFriendsCount = friends.filter(
+    (f) =>
+      f.friend.status === 'online' ||
+      f.friend.status === 'idle' ||
+      f.friend.status === 'dnd'
+  ).length;
+
+  const incomingRequestsCount = friendRequests.filter(
+    (r) => r.receiverId === currentUser.id && r.status === 'pending'
+  ).length;
+
   const filteredDMs = dmConversations.filter((dm) => {
+    if (dm.isGroup) {
+      return (
+        (dm.name || '').toLowerCase().includes(searchFilter.toLowerCase()) ||
+        dm.participants.some((p) =>
+          p.displayName.toLowerCase().includes(searchFilter.toLowerCase())
+        )
+      );
+    }
     const otherUser = dm.participants.find((p) => p.id !== currentUser.id);
     if (!otherUser) return true;
     return (
@@ -71,10 +92,13 @@ export const DirectMessagesSidebar: React.FC = () => {
       {/* Tabs / Quick Nav */}
       <div className="p-2 space-y-1">
         <button
-          onClick={() => setActiveTab('dms')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-semibold transition ${
-            activeTab === 'dms'
-              ? 'bg-violet-600/20 text-violet-200 border border-violet-500/30'
+          onClick={() => {
+            setActiveDM(null);
+            setActiveTab('dms');
+          }}
+          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-semibold transition cursor-pointer ${
+            activeTab === 'dms' && activeDMId === null
+              ? 'bg-violet-600/30 text-white border border-violet-500/40 shadow-sm'
               : 'text-slate-300 hover:bg-white/5 hover:text-white'
           }`}
         >
@@ -82,9 +106,16 @@ export const DirectMessagesSidebar: React.FC = () => {
             <Users className="w-4 h-4 text-violet-400" />
             <span>Friends</span>
           </div>
-          <span className="text-xs bg-violet-950/60 text-violet-300 px-2 py-0.5 rounded-full border border-violet-500/20">
-            Online (4)
-          </span>
+          <div className="flex items-center gap-1.5">
+            {incomingRequestsCount > 0 && (
+              <span className="text-[10px] bg-[#8247ff] text-white font-bold px-1.5 py-0.2 rounded-full animate-pulse">
+                {incomingRequestsCount}
+              </span>
+            )}
+            <span className="text-xs bg-violet-950/60 text-violet-300 px-2 py-0.5 rounded-full border border-violet-500/20 font-mono">
+              {onlineFriendsCount}
+            </span>
+          </div>
         </button>
 
         {/* Community Invitations Tab */}
@@ -184,18 +215,75 @@ export const DirectMessagesSidebar: React.FC = () => {
           <div className="flex items-center justify-between px-2 pt-2 pb-1 text-xs font-bold text-violet-400/80 uppercase tracking-wider">
             <span>Direct Messages</span>
             <button
-              onClick={() => openModal('search')}
-              title="Create Direct Message"
-              className="text-violet-400 hover:text-white transition"
+              onClick={() => openModal('create_group_dm')}
+              title="Create Group DM"
+              className="p-1 rounded-lg hover:bg-white/10 text-violet-400 hover:text-white transition cursor-pointer"
             >
               <Plus className="w-4 h-4" />
             </button>
           </div>
 
           {filteredDMs.map((dm) => {
+            const isActive = activeDMId === dm.id;
+
+            if (dm.isGroup) {
+              return (
+                <button
+                  key={dm.id}
+                  onClick={() => setActiveDM(dm.id)}
+                  className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition group ${
+                    isActive
+                      ? 'bg-violet-600/25 text-white border border-violet-500/30 shadow-md'
+                      : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  {/* Group Avatar */}
+                  <div className="relative shrink-0">
+                    {dm.avatar ? (
+                      <img
+                        src={dm.avatar}
+                        alt={dm.name}
+                        className="w-8 h-8 rounded-xl object-cover ring-1 ring-violet-500/30"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                        <Users className="w-4 h-4" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Name & Snippet */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-xs text-white truncate flex items-center gap-1.5">
+                        <span>{dm.name || 'Group Chat'}</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {dm.lastMessageTime}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] text-slate-400 truncate">
+                        {dm.lastMessage || `${dm.participants.length} operatives`}
+                      </p>
+                      <span className="text-[9px] text-violet-400 font-mono bg-violet-950/60 px-1 rounded ml-1 shrink-0">
+                        {dm.participants.length}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Unread badge */}
+                  {dm.unreadCount > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                      {dm.unreadCount}
+                    </span>
+                  )}
+                </button>
+              );
+            }
+
             const otherUser = dm.participants.find((p) => p.id !== currentUser.id);
             if (!otherUser) return null;
-            const isActive = activeDMId === dm.id;
 
             return (
               <button
