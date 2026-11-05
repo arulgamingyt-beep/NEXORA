@@ -96,7 +96,9 @@ export function saveVaultAccount(account: VaultAccount): void {
     all[account.user.id] = account;
     if (numUid) all[numUid] = account;
     
-    localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(all));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(all));
+    }
   } catch (err) {
     console.warn('Vault storage write warning:', err);
   }
@@ -290,8 +292,8 @@ export async function getOrCreateExecutiveAccount(category: ExecutiveCategory): 
   }> = {
     founder: {
       id: 'nxr_founder_01',
-      email: 'founder@nexora.io',
-      username: 'alex_vance',
+      email: 'founderofnxr@nexora.io',
+      username: 'founderofnxr',
       displayName: 'Alex Vance',
       tag: '#0001',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=256&h=256&fit=crop&crop=faces',
@@ -305,7 +307,7 @@ export async function getOrCreateExecutiveAccount(category: ExecutiveCategory): 
     ceo: {
       id: 'nxr_ceo_02',
       email: 'ceo@nexora.io',
-      username: 'cypher_ceo',
+      username: 'ceoofnxr',
       displayName: 'Elena Rostova',
       tag: '#0002',
       avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=256&h=256&fit=crop&crop=faces',
@@ -319,7 +321,7 @@ export async function getOrCreateExecutiveAccount(category: ExecutiveCategory): 
     managing_director: {
       id: 'nxr_md_03',
       email: 'md@nexora.io',
-      username: 'vanguard_md',
+      username: 'mdofnxr',
       displayName: 'Marcus Kane',
       tag: '#0003',
       avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=256&h=256&fit=crop&crop=faces',

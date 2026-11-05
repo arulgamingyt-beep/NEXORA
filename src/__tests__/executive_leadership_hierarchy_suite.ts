@@ -262,13 +262,17 @@ async function runExecutiveHierarchySuite() {
   );
 
   // -------------------------------------------------------------------------
-  // [4/5] Executive Preset Evaluation Accounts
+  // [4/5] Executive User IDs & Normal Authentication Flow
   // -------------------------------------------------------------------------
-  console.log('\n[4/5] Testing 1-Click Executive Preset Evaluation Accounts');
+  console.log('\n[4/5] Testing Executive User IDs & Normal Authentication Flow');
   const founderAcc = await getOrCreateExecutiveAccount('founder');
   assert(
-    founderAcc.executiveCategory === 'founder' && founderAcc.username === 'alex_vance',
-    'Founder account initialized with @alex_vance and category: founder'
+    founderAcc.executiveCategory === 'founder' && founderAcc.username === 'founderofnxr',
+    'Founder user ID/callsign is strictly "founderofnxr"'
+  );
+  assert(
+    founderAcc.email === 'founderofnxr@nexora.io',
+    'Founder electronic mail is "founderofnxr@nexora.io"'
   );
   assert(
     founderAcc.platformRole === 'super_admin' && founderAcc.betaStatus === 'approved',
@@ -277,8 +281,8 @@ async function runExecutiveHierarchySuite() {
 
   const ceoAcc = await getOrCreateExecutiveAccount('ceo');
   assert(
-    ceoAcc.executiveCategory === 'ceo' && ceoAcc.username === 'cypher_ceo',
-    'CEO account initialized with @cypher_ceo and category: ceo'
+    ceoAcc.executiveCategory === 'ceo' && ceoAcc.username === 'ceoofnxr',
+    'CEO user ID/callsign is "ceoofnxr"'
   );
   assert(
     ceoAcc.platformRole === 'admin' && ceoAcc.betaStatus === 'approved',
@@ -287,8 +291,8 @@ async function runExecutiveHierarchySuite() {
 
   const mdAcc = await getOrCreateExecutiveAccount('managing_director');
   assert(
-    mdAcc.executiveCategory === 'managing_director' && mdAcc.username === 'vanguard_md',
-    'Managing Director account initialized with @vanguard_md and category: managing_director'
+    mdAcc.executiveCategory === 'managing_director' && mdAcc.username === 'mdofnxr',
+    'Managing Director user ID/callsign is "mdofnxr"'
   );
   assert(
     mdAcc.platformRole === 'admin' && mdAcc.betaStatus === 'approved',
@@ -296,22 +300,20 @@ async function runExecutiveHierarchySuite() {
   );
 
   // -------------------------------------------------------------------------
-  // [5/5] UI Integration & Context Verification
+  // [5/5] Unified Standard Login Verification (No Separate Dashboard)
   // -------------------------------------------------------------------------
-  console.log('\n[5/5] Verifying UI Components & Context Clearance Matrix');
+  console.log('\n[5/5] Verifying Unified Standard Login (Normal Access Flow)');
   assert(
-    authScreenSource.includes("mode === 'executive'") && authScreenSource.includes('EXECUTIVE COMMAND GATEWAY'),
-    'AuthScreen implements dedicated mode === "executive" with EXECUTIVE COMMAND GATEWAY UI'
+    contextSource.includes('lowerClean === \'founderofnxr\''),
+    'NexoraContext loginWithEmail authenticates "founderofnxr" directly via normal login form'
   );
   assert(
-    authScreenSource.includes("setSelectedExecutiveCategory('founder')") &&
-    authScreenSource.includes("setSelectedExecutiveCategory('ceo')") &&
-    authScreenSource.includes("setSelectedExecutiveCategory('managing_director')"),
-    'AuthScreen provides interactive 3-category switcher (Founder, CEO, MD)'
+    contextSource.includes('lowerClean === \'ceoofnxr\'') && contextSource.includes('lowerClean === \'mdofnxr\''),
+    'NexoraContext loginWithEmail authenticates "ceoofnxr" and "mdofnxr" directly via normal login form'
   );
   assert(
-    contextSource.includes('loginAsExecutive') && contextSource.includes('executiveCategory'),
-    'NexoraContext exposes loginAsExecutive and executiveCategory state'
+    !authScreenSource.includes('EXECUTIVE COMMAND GATEWAY'),
+    'AuthScreen has NO separate dashboard or separate gateway banner (unified standard login)'
   );
   assert(
     adminModalSource.includes('Chairman') &&

@@ -255,6 +255,10 @@ export class BetaAccessService {
       user.platformRole === 'admin' ||
       user.role === 'admin' ||
       user.role === 'owner' ||
+      user.username === 'founderofnxr' ||
+      user.username === 'ceoofnxr' ||
+      user.username === 'mdofnxr' ||
+      user.email === 'founderofnxr@nexora.io' ||
       user.email === 'admin@nexora.io' ||
       user.email === 'founder@nexora.io' ||
       user.email === 'ceo@nexora.io' ||

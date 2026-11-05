@@ -21,15 +21,10 @@ import {
   ArrowRight,
   X,
   ExternalLink,
-  Crown,
-  Briefcase,
-  Building2,
-  Check,
 } from 'lucide-react';
 import { LegalDocumentViewer, LegalDocType } from '../legal/LegalDocumentViewer';
-import { ExecutiveCategory, EXECUTIVE_ROLES } from '../../types';
 
-type AuthMode = 'login' | 'register' | 'forgot_password' | 'executive';
+type AuthMode = 'login' | 'register' | 'forgot_password';
 
 export interface AuthScreenProps {
   initialMode?: 'login' | 'register';
@@ -45,7 +40,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     registerWithEmail,
     loginWithGoogle,
     quickDemoLogin,
-    loginAsExecutive,
     resetPassword,
   } = useNexora();
 
@@ -60,12 +54,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [customAvatarUrl, setCustomAvatarUrl] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // Executive Portal State (3 Specific Categories)
-  const [selectedExecutiveCategory, setSelectedExecutiveCategory] = useState<ExecutiveCategory>('founder');
-  const [executiveEmailOrCallsign, setExecutiveEmailOrCallsign] = useState('');
-  const [executivePassword, setExecutivePassword] = useState('');
-  const [showExecutiveCustomCreds, setShowExecutiveCustomCreds] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -217,29 +205,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     }
   };
 
-  // Handle Executive Leadership Login (Three Specific Categories)
-  const handleExecutiveLogin = async (
-    e?: React.FormEvent,
-    categoryToUse?: ExecutiveCategory,
-    bypassCustomCreds = false
-  ) => {
-    if (e) e.preventDefault();
-    setErrorMessage(null);
-    setIsLoading(true);
-    const category = categoryToUse || selectedExecutiveCategory;
-
-    const email = bypassCustomCreds ? undefined : executiveEmailOrCallsign.trim() || undefined;
-    const pass = bypassCustomCreds ? undefined : executivePassword || undefined;
-
-    try {
-      await loginAsExecutive(category, email, pass);
-    } catch (err: any) {
-      setErrorMessage(parseCleanError(err));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Handle Password Reset
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -346,40 +311,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-violet-400 rounded-bl-xl pointer-events-none" />
           <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-violet-400 rounded-br-xl pointer-events-none" />
 
-          {/* Executive Command Gateway Quick Switcher Banner */}
-          <div className="mb-6">
-            <button
-              type="button"
-              onClick={() => switchMode(mode === 'executive' ? 'login' : 'executive')}
-              className={`w-full p-3 rounded-2xl border transition-all duration-200 flex items-center justify-between text-xs font-mono font-bold cursor-pointer ${
-                mode === 'executive'
-                  ? 'bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-cyan-500/20 border-amber-500/50 text-amber-200 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/30'
-                  : 'bg-[#121424] hover:bg-[#181a30] border-violet-500/30 hover:border-violet-400/60 text-slate-300 hover:text-white shadow-sm'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Crown className="w-4 h-4 text-amber-400 shrink-0" />
-                <div className="text-left">
-                  <div className="flex items-center gap-1.5">
-                    <span>EXECUTIVE COMMAND GATEWAY</span>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-sans font-semibold uppercase">
-                      ADMIN LOGIN
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-sans font-normal">
-                    Chairman &amp; Founder • CEO • Managing Director
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 text-[11px] text-amber-400 font-sans font-medium">
-                <span>{mode === 'executive' ? 'Active Clearance' : 'Admin Login'}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </div>
-            </button>
-          </div>
-
           {/* Holographic Mode Switcher (Sign In vs Register Callsign) */}
-          {mode !== 'forgot_password' && mode !== 'executive' && (
+          {mode !== 'forgot_password' && (
             <div className="mb-8 p-1 rounded-2xl bg-[#090a14] border border-violet-500/20 grid grid-cols-2 gap-1 relative shadow-inner">
               <button
                 type="button"
@@ -428,18 +361,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   <span>Security Key Recovery</span>
                 </>
               )}
-              {mode === 'executive' && (
-                <>
-                  <Crown className="w-6 h-6 text-amber-400" />
-                  <span>Executive Command Gateway</span>
-                </>
-              )}
             </h2>
             <p className="text-xs sm:text-sm text-slate-400 mt-1 leading-relaxed">
               {mode === 'login' && 'Transmit your security credentials to link into the NEXORA network.'}
               {mode === 'register' && 'Configure your operative dossier, biometric avatar, and encrypted key.'}
               {mode === 'forgot_password' && 'Enter your registered electronic mail address to recover access.'}
-              {mode === 'executive' && 'Exclusive clearance for Chairman & Founder, CEO, and Managing Director to approve platform requests.'}
             </p>
           </div>
 
@@ -605,18 +531,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 >
                   <Sparkles className="w-4 h-4 text-violet-400" />
                   <span>Instant Demo Operative</span>
-                </button>
-              </div>
-
-              {/* Dedicated Specific Admin Login Trigger */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => switchMode('executive')}
-                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-cyan-500/10 hover:from-amber-500/20 hover:via-purple-500/20 hover:to-cyan-500/20 border border-amber-500/30 hover:border-amber-400/60 text-amber-200 hover:text-white text-xs font-mono font-bold tracking-wide transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                >
-                  <Crown className="w-4 h-4 text-amber-400" />
-                  <span>Executive Admin Gateway (Founder • CEO • MD)</span>
                 </button>
               </div>
             </form>
@@ -969,245 +883,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 </button>
               </div>
             </form>
-          )}
-
-          {/* 4. EXECUTIVE COMMAND GATEWAY (SPECIFIC ADMIN LOGIN WITH 3 CATEGORIES) */}
-          {mode === 'executive' && (
-            <div className="space-y-6 animate-in fade-in duration-200">
-              {/* Executive Category Switcher (3 Specific Categories) */}
-              <div>
-                <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300 flex items-center justify-between mb-2.5">
-                  <span>Executive Clearance Tier</span>
-                  <span className="text-amber-400 font-mono text-[10px]">EXCLUSIVE APPROVAL AUTHORITY</span>
-                </label>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {/* Category 1: Chairman and Founder */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedExecutiveCategory('founder')}
-                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
-                      selectedExecutiveCategory === 'founder'
-                        ? 'bg-amber-500/15 border-amber-500/70 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/40'
-                        : 'bg-[#111322] border-violet-500/20 hover:border-amber-500/40 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-                        <Crown className="w-4 h-4" />
-                      </div>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold uppercase">
-                        Full Access
-                      </span>
-                    </div>
-                    <div className="font-bold text-xs text-white">Chairman &amp; Founder</div>
-                    <div className="text-[10px] text-amber-300/80 font-mono mt-0.5">Platform Sovereign</div>
-                  </button>
-
-                  {/* Category 2: CEO */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedExecutiveCategory('ceo')}
-                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
-                      selectedExecutiveCategory === 'ceo'
-                        ? 'bg-violet-500/15 border-violet-500/70 shadow-lg shadow-violet-500/10 ring-1 ring-violet-500/40'
-                        : 'bg-[#111322] border-violet-500/20 hover:border-violet-500/40 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="w-8 h-8 rounded-xl bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-400">
-                        <Briefcase className="w-4 h-4" />
-                      </div>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30 font-bold uppercase">
-                        Strategic
-                      </span>
-                    </div>
-                    <div className="font-bold text-xs text-white">CEO</div>
-                    <div className="text-[10px] text-violet-300/80 font-mono mt-0.5">Chief Executive</div>
-                  </button>
-
-                  {/* Category 3: Managing Director */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedExecutiveCategory('managing_director')}
-                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
-                      selectedExecutiveCategory === 'managing_director'
-                        ? 'bg-cyan-500/15 border-cyan-500/70 shadow-lg shadow-cyan-500/10 ring-1 ring-cyan-500/40'
-                        : 'bg-[#111322] border-violet-500/20 hover:border-cyan-500/40 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
-                        <Building2 className="w-4 h-4" />
-                      </div>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold uppercase">
-                        Operational
-                      </span>
-                    </div>
-                    <div className="font-bold text-xs text-white">Managing Director</div>
-                    <div className="text-[10px] text-cyan-300/80 font-mono mt-0.5">Community &amp; Safety</div>
-                  </button>
-                </div>
-              </div>
-
-              {/* Selected Tier Specifications Card */}
-              <div
-                className={`p-4 rounded-2xl border ${EXECUTIVE_ROLES[selectedExecutiveCategory].borderColor} ${EXECUTIVE_ROLES[selectedExecutiveCategory].bgGlow} space-y-3.5 transition-all`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white">
-                      {EXECUTIVE_ROLES[selectedExecutiveCategory].title}
-                    </span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/40 border border-white/10 text-slate-300 font-semibold">
-                      {EXECUTIVE_ROLES[selectedExecutiveCategory].scope}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    EXCLUSIVE APPROVAL PRIVILEGE
-                  </span>
-                </div>
-
-                <p className="text-xs text-slate-300 leading-relaxed font-sans">
-                  {EXECUTIVE_ROLES[selectedExecutiveCategory].description}
-                </p>
-
-                {/* Privileges Checklist */}
-                <div className="pt-2 border-t border-white/10 space-y-1.5">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
-                    Approval Scope &amp; Authority:
-                  </span>
-                  {EXECUTIVE_ROLES[selectedExecutiveCategory].approvalPrivileges.map((priv, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-xs text-slate-200">
-                      <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>{priv}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Preset Verified Evaluation Identity */}
-                <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] font-mono text-slate-300">
-                  <span>Verified Identity:</span>
-                  <span className="text-white font-bold">
-                    {selectedExecutiveCategory === 'founder'
-                      ? 'Alex Vance (@alex_vance • founder@nexora.io)'
-                      : selectedExecutiveCategory === 'ceo'
-                      ? 'Elena Rostova (@cypher_ceo • ceo@nexora.io)'
-                      : 'Marcus Kane (@vanguard_md • md@nexora.io)'}
-                  </span>
-                </div>
-              </div>
-
-              {/* 1-Click Fast Track Executive Login */}
-              <button
-                type="button"
-                onClick={() => handleExecutiveLogin(undefined, selectedExecutiveCategory, true)}
-                disabled={isLoading}
-                className={`w-full py-3.5 px-6 rounded-2xl font-bold text-sm tracking-wide shadow-xl transition flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 text-white ${
-                  selectedExecutiveCategory === 'founder'
-                    ? 'bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 shadow-amber-600/30'
-                    : selectedExecutiveCategory === 'ceo'
-                    ? 'bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-violet-600/30'
-                    : 'bg-gradient-to-r from-cyan-600 via-teal-600 to-cyan-700 hover:from-cyan-500 hover:to-cyan-600 shadow-cyan-600/30'
-                }`}
-              >
-                {isLoading ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Verifying Executive Clearance...</span>
-                  </>
-                ) : (
-                  <>
-                    <Crown className="w-4 h-4" />
-                    <span>1-Click Enter as {EXECUTIVE_ROLES[selectedExecutiveCategory].title}</span>
-                    <ArrowRight className="w-4 h-4 ml-auto" />
-                  </>
-                )}
-              </button>
-
-              {/* Toggle Live Custom Executive Credentials */}
-              <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowExecutiveCustomCreds(!showExecutiveCustomCreds)}
-                  className="w-full text-center text-xs text-violet-400 hover:text-violet-300 font-mono transition flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span>
-                    {showExecutiveCustomCreds ? 'Hide custom credential entry' : 'Or authenticate with custom executive security key'}
-                  </span>
-                </button>
-
-                {showExecutiveCustomCreds && (
-                  <form
-                    onSubmit={(e) => handleExecutiveLogin(e, selectedExecutiveCategory, false)}
-                    className="mt-4 space-y-3 p-4 rounded-2xl bg-[#090a14] border border-violet-500/20"
-                  >
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-mono uppercase text-slate-300">
-                        Executive Callsign / Registered Email
-                      </label>
-                      <input
-                        type="text"
-                        value={executiveEmailOrCallsign}
-                        onChange={(e) => setExecutiveEmailOrCallsign(e.target.value)}
-                        placeholder={
-                          selectedExecutiveCategory === 'founder'
-                            ? 'founder@nexora.io or alex_vance'
-                            : selectedExecutiveCategory === 'ceo'
-                            ? 'ceo@nexora.io or cypher_ceo'
-                            : 'md@nexora.io or vanguard_md'
-                        }
-                        className="w-full bg-[#111322] border border-violet-500/25 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 font-sans"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-mono uppercase text-slate-300">
-                        Executive Security Key
-                      </label>
-                      <input
-                        type="password"
-                        value={executivePassword}
-                        onChange={(e) => setExecutivePassword(e.target.value)}
-                        placeholder="Enter security key..."
-                        className="w-full bg-[#111322] border border-violet-500/25 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 font-sans"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full py-2.5 px-4 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs font-mono transition cursor-pointer"
-                    >
-                      Authenticate Credentials &amp; Link
-                    </button>
-                  </form>
-                )}
-              </div>
-
-              {/* Defense-in-depth security notice */}
-              <div className="p-3 rounded-xl bg-[#070812] border border-amber-500/20 text-[10px] font-mono text-slate-400 space-y-1">
-                <div className="flex items-center gap-1.5 text-amber-300 font-bold">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>IMMUTABLE AUDIT RECORDING</span>
-                </div>
-                <p>
-                  All executive approvals (beta access, verified servers, suspensions) are cryptographically recorded into the immutable audit ledger with your executive title.
-                </p>
-              </div>
-
-              {/* Back to Operative Login */}
-              <div className="pt-2 text-center border-t border-violet-500/15">
-                <button
-                  type="button"
-                  onClick={() => switchMode('login')}
-                  className="text-xs text-slate-400 hover:text-white transition font-mono flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
-                >
-                  <span>← Return to Standard Operative Gateway</span>
-                </button>
-              </div>
-            </div>
           )}
 
           {/* Bottom Card Footer Info */}

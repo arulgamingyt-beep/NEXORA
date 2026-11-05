@@ -94,13 +94,33 @@ export class AdminService {
   public getExecutiveCategory(user: User | null | undefined): ExecutiveCategory | null {
     if (!user) return null;
     if (user.executiveCategory) return user.executiveCategory;
-    if (user.email === 'founder@nexora.io' || user.username === 'alex_vance' || user.id === 'user_alex') {
+    const cleanUser = (user.username || '').toLowerCase().replace(/^@/, '');
+    const cleanEmail = (user.email || '').toLowerCase();
+
+    if (
+      cleanUser === 'founderofnxr' ||
+      cleanEmail === 'founderofnxr@nexora.io' ||
+      cleanEmail === 'founder@nexora.io' ||
+      cleanUser === 'alex_vance' ||
+      user.id === 'user_alex' ||
+      user.id === 'nxr_founder_01'
+    ) {
       return 'founder';
     }
-    if (user.email === 'ceo@nexora.io' || user.username === 'cypher_ceo') {
+    if (
+      cleanUser === 'ceoofnxr' ||
+      cleanEmail === 'ceo@nexora.io' ||
+      cleanUser === 'cypher_ceo' ||
+      user.id === 'nxr_ceo_02'
+    ) {
       return 'ceo';
     }
-    if (user.email === 'md@nexora.io' || user.username === 'vanguard_md') {
+    if (
+      cleanUser === 'mdofnxr' ||
+      cleanEmail === 'md@nexora.io' ||
+      cleanUser === 'vanguard_md' ||
+      user.id === 'nxr_md_03'
+    ) {
       return 'managing_director';
     }
     return null;

@@ -3421,6 +3421,75 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
+    const lowerClean = cleanId.toLowerCase().replace(/^@/, '');
+
+    // Executive Leadership Sign-in (Normal User Login Flow)
+    // 1. Chairman and Founder (User ID: founderofnxr)
+    if (
+      lowerClean === 'founderofnxr' ||
+      lowerClean === 'founderofnxr@nexora.io' ||
+      lowerClean === 'founder@nexora.io'
+    ) {
+      const validPasswords = ['NexoraFounder2026!', 'founder2026', 'Nexora2026!', 'founderofnxr', 'NexoraExecutive2026!'];
+      if (validPasswords.includes(password)) {
+        const founder = await getOrCreateExecutiveAccount('founder');
+        const onlineProfile: User = { ...founder, status: 'online' };
+        setActiveVaultSession(onlineProfile);
+        setVaultUser(onlineProfile);
+        setCurrentUser(onlineProfile);
+        setAllUsers((prev) => ({ ...prev, [onlineProfile.id]: onlineProfile }));
+        try {
+          await setDoc(doc(db, 'users', onlineProfile.id), onlineProfile, { merge: true });
+        } catch {}
+        showToast(`Executive Link Verified: Welcome, Chairman & Founder (@founderofnxr)!`, 'success');
+        return;
+      }
+    }
+
+    // 2. CEO (User ID: ceoofnxr)
+    if (
+      lowerClean === 'ceoofnxr' ||
+      lowerClean === 'ceo@nexora.io' ||
+      lowerClean === 'cypher_ceo'
+    ) {
+      const validPasswords = ['NexoraCEO2026!', 'ceo2026', 'Nexora2026!', 'ceoofnxr', 'NexoraExecutive2026!'];
+      if (validPasswords.includes(password)) {
+        const ceo = await getOrCreateExecutiveAccount('ceo');
+        const onlineProfile: User = { ...ceo, status: 'online' };
+        setActiveVaultSession(onlineProfile);
+        setVaultUser(onlineProfile);
+        setCurrentUser(onlineProfile);
+        setAllUsers((prev) => ({ ...prev, [onlineProfile.id]: onlineProfile }));
+        try {
+          await setDoc(doc(db, 'users', onlineProfile.id), onlineProfile, { merge: true });
+        } catch {}
+        showToast(`Executive Link Verified: Welcome, Chief Executive Officer (@ceoofnxr)!`, 'success');
+        return;
+      }
+    }
+
+    // 3. Managing Director (User ID: mdofnxr)
+    if (
+      lowerClean === 'mdofnxr' ||
+      lowerClean === 'md@nexora.io' ||
+      lowerClean === 'vanguard_md'
+    ) {
+      const validPasswords = ['NexoraMD2026!', 'md2026', 'Nexora2026!', 'mdofnxr', 'NexoraExecutive2026!'];
+      if (validPasswords.includes(password)) {
+        const md = await getOrCreateExecutiveAccount('managing_director');
+        const onlineProfile: User = { ...md, status: 'online' };
+        setActiveVaultSession(onlineProfile);
+        setVaultUser(onlineProfile);
+        setCurrentUser(onlineProfile);
+        setAllUsers((prev) => ({ ...prev, [onlineProfile.id]: onlineProfile }));
+        try {
+          await setDoc(doc(db, 'users', onlineProfile.id), onlineProfile, { merge: true });
+        } catch {}
+        showToast(`Executive Link Verified: Welcome, Managing Director (@mdofnxr)!`, 'success');
+        return;
+      }
+    }
+
     // 2. Resolve target email (supports callsign @username or standard email address)
     let targetEmail = cleanId;
     if (!cleanId.includes('@')) {
