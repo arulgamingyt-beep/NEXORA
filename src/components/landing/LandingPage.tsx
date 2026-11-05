@@ -67,16 +67,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onGetStarted 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo & Brand Signature */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 hex-clip bg-gradient-to-tr from-violet-600 to-indigo-500 p-0.5 shadow-lg shadow-violet-600/25 flex items-center justify-center">
-              <div className="w-full h-full bg-[#0d0f1d] hex-clip flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-violet-400" />
-              </div>
+            <div className="w-10 h-10 rounded-xl overflow-hidden ring-2 ring-violet-500/40 shadow-lg shadow-violet-600/30 shrink-0 bg-[#0d0f1d]">
+              <img src="/nexora-logo.jpg" alt="NEXORA Logo" className="w-full h-full object-cover" />
             </div>
             <div>
-              <span className="text-base font-extrabold tracking-widest text-white font-mono">
-                NEXORA
-              </span>
-              <span className="hidden sm:inline-block ml-2 text-[9px] font-mono tracking-widest text-slate-400 uppercase border-l border-white/10 pl-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-base font-extrabold tracking-widest text-white font-mono">
+                  NEXORA
+                </span>
+                <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+              </div>
+              <span className="hidden sm:inline-block text-[9px] font-mono tracking-widest text-slate-400 uppercase">
                 TECHNOLOGIES
               </span>
             </div>
@@ -255,8 +256,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onGetStarted 
           <div className="h-[380px] sm:h-[460px] bg-[#070810] rounded-b-2xl flex overflow-hidden text-left select-none relative">
             {/* 1. Server Rail */}
             <div className="w-14 bg-[#090a14] border-r border-[#1a1c2e] flex flex-col items-center py-3 gap-2.5 shrink-0">
-              <div className="w-9 h-9 rounded-2xl bg-violet-600 text-white flex items-center justify-center shadow-lg shadow-violet-600/30">
-                <Sparkles className="w-4 h-4" />
+              <div className="w-9 h-9 rounded-2xl overflow-hidden ring-1 ring-violet-400/40 shadow-lg shadow-violet-600/30">
+                <img src="/nexora-logo.jpg" alt="NEXORA" className="w-full h-full object-cover" />
               </div>
               <div className="w-6 h-[1px] bg-white/10" />
               <div className="w-9 h-9 rounded-2xl bg-[#141628] text-violet-300 flex items-center justify-center border border-white/5 hover:bg-violet-600 transition">

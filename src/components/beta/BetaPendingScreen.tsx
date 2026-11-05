@@ -49,10 +49,8 @@ export const BetaPendingScreen: React.FC = () => {
       {/* Top Header Bar */}
       <header className="max-w-5xl w-full mx-auto flex items-center justify-between pb-6 border-b border-[#1a1c2e]">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 hex-clip bg-gradient-to-tr from-violet-600 to-indigo-500 p-0.5 shadow-md shadow-violet-600/30 flex items-center justify-center">
-            <div className="w-full h-full bg-[#0d0f1d] hex-clip flex items-center justify-center text-violet-400">
-              <Sparkles className="w-4 h-4" />
-            </div>
+          <div className="w-8 h-8 rounded-lg overflow-hidden ring-1 ring-violet-500/50 shadow-md shadow-violet-600/30 shrink-0 bg-[#0d0f1d]">
+            <img src="/nexora-logo.jpg" alt="NEXORA" className="w-full h-full object-cover" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">

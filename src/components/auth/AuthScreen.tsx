@@ -295,10 +295,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       {/* TOP HEADER: NEXORA Brand & Encryption Telemetry */}
       <header className="relative z-10 w-full max-w-5xl mx-auto flex items-center justify-between pb-6 pt-2">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 hex-clip bg-gradient-to-tr from-violet-600 to-indigo-500 p-0.5 shadow-lg shadow-violet-600/30 flex items-center justify-center">
-            <div className="w-full h-full bg-[#0d0f1d] hex-clip flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-violet-400" />
-            </div>
+          <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-violet-500/50 shadow-xl shadow-violet-600/40 shrink-0 bg-[#0d0f1d] p-0.5">
+            <img src="/nexora-logo.jpg" alt="NEXORA Logo" className="w-full h-full object-cover rounded-xl" />
           </div>
           <div>
             <div className="flex items-center gap-2">

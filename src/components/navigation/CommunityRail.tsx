@@ -29,13 +29,17 @@ export const CommunityRail: React.FC = () => {
         <button
           onClick={() => setActiveCommunity(null)}
           title="Direct Messages & Friends"
-          className={`w-12 h-12 flex items-center justify-center transition-all duration-200 relative cursor-pointer ${
+          className={`w-12 h-12 flex items-center justify-center transition-all duration-200 relative cursor-pointer overflow-hidden p-1 ${
             isHomeActive
-              ? 'bg-[#8247ff] text-white rounded-2xl shadow-lg shadow-purple-600/40'
-              : 'bg-[#131526] text-[#a855f7] hover:bg-[#8247ff] hover:text-white hover:rounded-2xl rounded-3xl'
+              ? 'bg-[#8247ff] rounded-2xl shadow-lg shadow-purple-600/40 ring-2 ring-violet-400'
+              : 'bg-[#131526] hover:bg-[#8247ff] hover:rounded-2xl rounded-3xl'
           }`}
         >
-          <Sparkles className="w-6 h-6 animate-pulse" />
+          <img
+            src="/nexora-logo.jpg"
+            alt="NEXORA"
+            className="w-full h-full object-cover rounded-xl transition-transform duration-200 hover:scale-110"
+          />
 
           {/* Discord Hover Tooltip */}
           <div className="absolute left-20 px-3 py-1.5 bg-[#181a2e] text-white text-xs font-semibold rounded-xl shadow-2xl border border-violet-500/20 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50">

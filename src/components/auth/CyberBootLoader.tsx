@@ -18,11 +18,9 @@ export const CyberBootLoader: React.FC = () => {
           <div className="w-20 h-20 rounded-full border border-purple-500/30 border-t-violet-400 animate-spin duration-700" />
         </div>
 
-        {/* Inner Hex Logo */}
-        <div className="absolute w-14 h-14 bg-gradient-to-tr from-violet-600 via-purple-600 to-indigo-600 hex-clip p-0.5 shadow-2xl shadow-violet-600/60">
-          <div className="w-full h-full bg-[#0d0f1c] hex-clip flex items-center justify-center text-violet-300">
-            <Sparkles className="w-6 h-6 text-violet-400 animate-pulse" />
-          </div>
+        {/* Inner Logo */}
+        <div className="absolute w-14 h-14 rounded-2xl overflow-hidden ring-2 ring-violet-400/80 shadow-2xl shadow-violet-600/70 p-0.5 bg-[#0d0f1c]">
+          <img src="/nexora-logo.jpg" alt="NEXORA" className="w-full h-full object-cover rounded-xl" />
         </div>
       </div>
 

@@ -3,6 +3,11 @@
  */
 export const CYBER_AVATARS: { id: string; name: string; url: string }[] = [
   {
+    id: 'nexora-mascot',
+    name: 'NEXORA Prime Mascot',
+    url: '/nexora-logo.jpg',
+  },
+  {
     id: 'cyber-1',
     name: 'Cyber Samurai',
     url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=256&auto=format&fit=crop&q=80',

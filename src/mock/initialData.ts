@@ -124,7 +124,7 @@ export const INITIAL_COMMUNITIES: Community[] = [
     id: 'comm_nexora_hq',
     name: 'NEXORA HQ',
     tagline: 'CONNECT WITHOUT LIMITS',
-    icon: '⚡',
+    icon: '/nexora-logo.jpg',
     banner: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
     ownerId: 'user_alex',
     description: 'The official NEXORA flagship community. Real-time updates, engineering discussions, feature roadmaps, and global member lounge.',

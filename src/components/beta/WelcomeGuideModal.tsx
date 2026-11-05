@@ -45,8 +45,8 @@ export const WelcomeGuideModal: React.FC<WelcomeGuideModalProps> = ({
       {/* Top Header */}
       <div className="p-4 sm:p-5 border-b border-[#20223c] flex items-center justify-between shrink-0 bg-[#0d0e1c]">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-300">
-            <Compass className="w-5 h-5 text-violet-400" />
+          <div className="w-10 h-10 rounded-2xl overflow-hidden ring-1 ring-violet-500/40 shadow-lg shadow-violet-600/30 shrink-0 bg-[#0d0f1d]">
+            <img src="/nexora-logo.jpg" alt="NEXORA" className="w-full h-full object-cover" />
           </div>
           <div>
             <div className="flex items-center gap-2">

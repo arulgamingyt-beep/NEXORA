@@ -260,8 +260,8 @@ export const AdminControlPanelModal: React.FC = () => {
         {/* Top Command Banner */}
         <div className="h-14 px-6 bg-[#0e101f] border-b border-[#1b1e36] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-violet-600/20 border border-violet-500/40 flex items-center justify-center text-violet-400">
-              <ShieldAlert className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-xl overflow-hidden ring-1 ring-violet-500/50 shadow-md shadow-violet-600/30 flex items-center justify-center shrink-0 bg-[#0d0f1d]">
+              <img src="/nexora-logo.jpg" alt="NEXORA" className="w-full h-full object-cover" />
             </div>
             <div>
               <div className="flex items-center gap-2">

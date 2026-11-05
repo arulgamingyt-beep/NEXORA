@@ -68,12 +68,10 @@ export const TopHubHeader: React.FC = () => {
           <Menu className="w-4 h-4" />
         </button>
 
-        {/* NEXORA Hex Brand Emblem */}
+        {/* NEXORA Brand Emblem */}
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 hex-clip bg-gradient-to-tr from-violet-600 to-indigo-500 p-0.5 shadow-md shadow-violet-600/30 flex items-center justify-center">
-            <div className="w-full h-full bg-[#0d0f1d] hex-clip flex items-center justify-center text-violet-400">
-              <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-            </div>
+          <div className="w-6 h-6 rounded-md overflow-hidden ring-1 ring-violet-500/50 shadow-md shadow-violet-600/30 flex items-center justify-center shrink-0">
+            <img src="/nexora-logo.jpg" alt="NEXORA" className="w-full h-full object-cover" />
           </div>
 
           <div className="flex items-center gap-1.5">
