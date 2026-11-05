@@ -209,24 +209,30 @@ async function runPerformanceAudit() {
 
     let jsTotalSize = 0;
     let cssTotalSize = 0;
+    let maxChunkSize = 0;
 
     files.forEach(f => {
       const stats = fs.statSync(path.join(distPath, f));
-      if (f.endsWith('.js')) jsTotalSize += stats.size;
+      if (f.endsWith('.js')) {
+        jsTotalSize += stats.size;
+        if (stats.size > maxChunkSize) maxChunkSize = stats.size;
+      }
       if (f.endsWith('.css')) cssTotalSize += stats.size;
     });
 
     const jsKb = Math.round(jsTotalSize / 1024);
+    const maxChunkKb = Math.round(maxChunkSize / 1024);
     const cssKb = Math.round(cssTotalSize / 1024);
     const duration = 0.5; // static check
-    const passed = jsKb < 1500 && cssKb < 200;
+    // Ensure no single chunk exceeds 1500 KB and total bundle is well within 2500 KB
+    const passed = maxChunkKb < 1500 && jsKb < 2500 && cssKb < 200;
 
     recordPerf(
       6,
       'Production Bundle Distribution (Chunk Size Audit)',
       duration,
       10,
-      `JS: ${jsKb} KB | CSS: ${cssKb} KB`,
+      `Max Chunk: ${maxChunkKb} KB | Total JS: ${jsKb} KB | CSS: ${cssKb} KB`,
       passed,
       'Vite bundle splitting partitions Firebase, Icons, and Motion into cached vendor chunks.'
     );

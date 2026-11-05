@@ -139,7 +139,7 @@ async function runMasterReleaseValidation() {
     process.stdout.write(`[${i + 1}/${auditRoster.length}] Auditing: ${item.name}... `);
 
     try {
-      execSync(item.command, { stdio: 'pipe', timeout: 45000, shell: 'cmd.exe' });
+      execSync(item.command, { stdio: 'pipe', timeout: 45000, shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh' });
       item.status = 'PASS';
       passedSuites++;
       console.log('✅ PASS');
