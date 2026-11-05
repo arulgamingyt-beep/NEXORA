@@ -149,3 +149,4 @@ runControlledLoadTesting().catch(err => {
   console.error('Load testing error:', err);
   process.exit(1);
 });
+

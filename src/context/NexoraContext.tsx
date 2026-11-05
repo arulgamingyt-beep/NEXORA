@@ -88,6 +88,8 @@ export type ModalType =
   | 'join_invite'
   | 'search'
   | 'auth'
+  | 'beta_feedback'
+  | 'beta_admin'
   | null;
 
 interface ToastInfo {

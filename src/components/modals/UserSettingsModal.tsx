@@ -53,6 +53,7 @@ type SettingsTab =
 export const UserSettingsModal: React.FC = () => {
   const {
     activeModal,
+    openModal,
     closeModal,
     currentUser,
     updateUserProfile,
@@ -1352,6 +1353,21 @@ export const UserSettingsModal: React.FC = () => {
                       onChange={(e) => setHardwareAcceleration(e.target.checked)}
                       className="w-4 h-4 text-violet-600 rounded cursor-pointer"
                     />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                    <div>
+                      <p className="text-xs font-semibold text-white">Private Beta Feedback Telemetry</p>
+                      <p className="text-[11px] text-slate-400">
+                        File diagnostic bug reports with screenshots, browser telemetry, and severity tracking
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => openModal('beta_feedback')}
+                      className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-mono text-xs font-bold transition cursor-pointer border border-amber-500/30 shrink-0"
+                    >
+                      Report Anomaly
+                    </button>
                   </div>
                 </div>
               </div>

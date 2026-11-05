@@ -13,6 +13,8 @@ import {
   Settings,
   Bell,
   Radio,
+  Bug,
+  ShieldAlert,
 } from 'lucide-react';
 import { UserStatus } from '../../types';
 
@@ -42,6 +44,12 @@ export const TopHubHeader: React.FC = () => {
   const pendingInvitesCount = communityInvites.filter(
     (inv) => inv.status === 'pending' && (!inv.targetUserId || inv.targetUserId === currentUser.id)
   ).length;
+
+  const isAdmin =
+    currentUser.role === 'admin' ||
+    currentUser.role === 'owner' ||
+    currentUser.email === 'admin@nexora.io' ||
+    (currentUser as any).isAdmin === true;
 
   return (
     <header className="h-10 px-3 bg-[#070810] border-b border-[#1a1c2e] flex items-center justify-between z-30 select-none shrink-0 shadow-sm relative">
@@ -147,6 +155,28 @@ export const TopHubHeader: React.FC = () => {
         >
           {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
         </button>
+
+        {/* Private Beta Feedback Button */}
+        <button
+          onClick={() => openModal('beta_feedback')}
+          title="Report Bug or Beta Feedback"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono font-bold transition cursor-pointer"
+        >
+          <Bug className="w-3.5 h-3.5 text-amber-400" />
+          <span className="hidden md:inline">FEEDBACK</span>
+        </button>
+
+        {/* Admin Feedback Dashboard Button (Admin Only) */}
+        {isAdmin && (
+          <button
+            onClick={() => openModal('beta_admin')}
+            title="Beta Feedback Administration Dashboard"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 text-xs font-mono font-bold transition cursor-pointer"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-violet-400" />
+            <span className="hidden lg:inline">ADMIN HUD</span>
+          </button>
+        )}
 
         {/* Pending Invites Alert */}
         {pendingInvitesCount > 0 && (

@@ -35,6 +35,15 @@ service cloud.firestore {
       );
     }
 
+    function isSystemAdmin() {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'owner']) ||
+        request.auth.token.email == 'admin@nexora.io' ||
+        request.auth.token.admin == true
+      );
+    }
+
     // 0. Connection Test
     match /test/{docId} {
       allow read: if true;
@@ -278,6 +287,37 @@ service cloud.firestore {
            get(/databases/$(database)/documents/calls/$(callId)).data.callerId == request.auth.uid)
         );
       }
+    }
+
+    // Beta Testing Feedback System
+    match /beta_feedback/{feedbackId} {
+      // Ordinary testers can read their own feedback; System Admins can read all feedback
+      allow read: if isSignedIn() && (
+        resource == null ||
+        resource.data.testerId == request.auth.uid ||
+        isSystemAdmin()
+      );
+
+      // Authenticated testers can submit feedback with strict schema validation
+      allow create: if isSignedIn() && isValidId(feedbackId) &&
+        request.resource.data.testerId == request.auth.uid &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() >= 3 &&
+        request.resource.data.title.size() <= 100 &&
+        request.resource.data.description is string &&
+        request.resource.data.description.size() >= 10 &&
+        request.resource.data.description.size() <= 2000 &&
+        request.resource.data.category in ['voice_video', 'messaging', 'communities', 'auth', 'performance', 'ui_ux', 'other'] &&
+        request.resource.data.severity in ['low', 'medium', 'high', 'critical'] &&
+        request.resource.data.status == 'new' &&
+        (!('screenshot' in request.resource.data) || request.resource.data.screenshot is string);
+
+      // Only authorized administrators can update status and admin notes
+      allow update: if isSystemAdmin() && isValidId(feedbackId) &&
+        request.resource.data.status in ['new', 'reviewing', 'in_progress', 'fixed', 'closed'];
+
+      // Only administrators can delete feedback
+      allow delete: if isSystemAdmin() && isValidId(feedbackId);
     }
   }
 }

@@ -16,6 +16,8 @@ import { UserSettingsModal } from './components/modals/UserSettingsModal';
 import { QuickSwitcherModal } from './components/modals/QuickSwitcherModal';
 import { CreateGroupDMModal } from './components/modals/CreateGroupDMModal';
 import { IncomingCallModal } from './components/modals/IncomingCallModal';
+import { BetaFeedbackModal } from './components/modals/BetaFeedbackModal';
+import { BetaFeedbackAdminModal } from './components/modals/BetaFeedbackAdminModal';
 import { ActiveCallRoom } from './components/calling/ActiveCallRoom';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { CyberBootLoader } from './components/auth/CyberBootLoader';
@@ -118,6 +120,8 @@ const NexoraApp: React.FC = () => {
       {activeModal === 'user_settings' && <UserSettingsModal />}
       {activeModal === 'search' && <QuickSwitcherModal />}
       {activeModal === 'create_group_dm' && <CreateGroupDMModal />}
+      {activeModal === 'beta_feedback' && <BetaFeedbackModal />}
+      {activeModal === 'beta_admin' && <BetaFeedbackAdminModal />}
 
       {/* Real-Time Communications HUD */}
       <IncomingCallModal />

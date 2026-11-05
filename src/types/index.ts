@@ -229,3 +229,35 @@ export interface CallSession {
   durationSeconds?: number;
 }
 
+export type BetaFeedbackCategory =
+  | 'voice_video'
+  | 'messaging'
+  | 'communities'
+  | 'auth'
+  | 'performance'
+  | 'ui_ux'
+  | 'other';
+
+export type BetaFeedbackSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export type BetaFeedbackStatus = 'new' | 'reviewing' | 'in_progress' | 'fixed' | 'closed';
+
+export interface BetaFeedbackItem {
+  id: string;
+  title: string;
+  description: string;
+  category: BetaFeedbackCategory;
+  severity: BetaFeedbackSeverity;
+  browserAndDevice: string;
+  screenshot?: string; // Base64 data URL (max 2MB)
+  testerId: string;
+  testerName: string;
+  testerTag?: string;
+  testerAvatar?: string;
+  status: BetaFeedbackStatus;
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+
