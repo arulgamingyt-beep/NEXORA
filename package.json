@@ -13,6 +13,7 @@
     "test:real-device": "tsx src/__tests__/real_device_communication_test_suite.ts",
     "test:security": "tsx src/__tests__/security_privacy_audit_suite.ts",
     "test:perf": "tsx src/__tests__/performance_load_test_suite.ts",
+    "test:load": "tsx src/__tests__/controlled_load_test_runner.ts",
     "test:roadmap": "tsx src/__tests__/roadmap_audit_master_suite.ts",
     "test:community": "tsx src/__tests__/community_test_suite.ts",
     "test:friends": "tsx src/__tests__/friends_dm_test_suite.ts",

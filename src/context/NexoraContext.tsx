@@ -57,6 +57,7 @@ import {
   onSnapshot,
   query,
   orderBy,
+  limit,
   getDocFromServer,
 } from 'firebase/firestore';
 import { getRandomCyberAvatar } from '../utils/avatars';
@@ -464,8 +465,9 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!authUser) return;
 
     const usersCollRef = collection(db, 'users');
+    const usersQuery = query(usersCollRef, limit(100));
     const unsubscribe = onSnapshot(
-      usersCollRef,
+      usersQuery,
       (snapshot) => {
         const remoteUsers: Record<string, User> = {};
         snapshot.docs.forEach((docSnap) => {
@@ -505,21 +507,25 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [currentUser?.id, authUser]);
 
-  // Save changes to localStorage for resilience
+  // Save changes to localStorage with 300ms debounce to prevent main-thread stutter
   useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY + '_communities', JSON.stringify(communities));
-      localStorage.setItem(LOCAL_STORAGE_KEY + '_messages', JSON.stringify(allMessages));
-      localStorage.setItem(LOCAL_STORAGE_KEY + '_invites', JSON.stringify(communityInvites));
-      localStorage.setItem(LOCAL_STORAGE_KEY + '_dms', JSON.stringify(dmConversations));
-      localStorage.setItem(LOCAL_STORAGE_KEY + '_friends', JSON.stringify(friends));
-      localStorage.setItem(LOCAL_STORAGE_KEY + '_friend_requests', JSON.stringify(friendRequests));
-      localStorage.setItem(LOCAL_STORAGE_KEY + '_blocked_users', JSON.stringify(blockedUsers));
-      localStorage.setItem(LOCAL_STORAGE_KEY + '_user', JSON.stringify(currentUser));
-      localStorage.setItem(LOCAL_STORAGE_KEY + '_channel_mutes', JSON.stringify(channelMutes));
-    } catch (e) {
-      console.warn('Storage sync error:', e);
-    }
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY + '_communities', JSON.stringify(communities));
+        localStorage.setItem(LOCAL_STORAGE_KEY + '_messages', JSON.stringify(allMessages));
+        localStorage.setItem(LOCAL_STORAGE_KEY + '_invites', JSON.stringify(communityInvites));
+        localStorage.setItem(LOCAL_STORAGE_KEY + '_dms', JSON.stringify(dmConversations));
+        localStorage.setItem(LOCAL_STORAGE_KEY + '_friends', JSON.stringify(friends));
+        localStorage.setItem(LOCAL_STORAGE_KEY + '_friend_requests', JSON.stringify(friendRequests));
+        localStorage.setItem(LOCAL_STORAGE_KEY + '_blocked_users', JSON.stringify(blockedUsers));
+        localStorage.setItem(LOCAL_STORAGE_KEY + '_user', JSON.stringify(currentUser));
+        localStorage.setItem(LOCAL_STORAGE_KEY + '_channel_mutes', JSON.stringify(channelMutes));
+      } catch (e) {
+        console.warn('Storage sync error:', e);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [
     communities,
     allMessages,
@@ -599,7 +605,7 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       activeChannelId,
       'messages'
     );
-    const messagesQuery = query(messagesCollRef, orderBy('timestamp', 'asc'));
+    const messagesQuery = query(messagesCollRef, orderBy('timestamp', 'asc'), limit(50));
 
     const unsubscribe = onSnapshot(
       messagesQuery,
@@ -657,7 +663,7 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setIsCloudSyncing(true);
     const dmMessagesRef = collection(db, 'dm_threads', activeDMId, 'messages');
-    const dmMessagesQuery = query(dmMessagesRef, orderBy('timestamp', 'asc'));
+    const dmMessagesQuery = query(dmMessagesRef, orderBy('timestamp', 'asc'), limit(50));
 
     const unsubscribe = onSnapshot(
       dmMessagesQuery,
