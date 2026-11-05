@@ -13,7 +13,7 @@ import { CreateCommunityModal } from './components/modals/CreateCommunityModal';
 import { CreateChannelModal } from './components/modals/CreateChannelModal';
 import { CommunitySettingsModal } from './components/modals/CommunitySettingsModal';
 import { UserSettingsModal } from './components/modals/UserSettingsModal';
-import { QuickSwitcherModal } from './components/modals/QuickSwitcherModal';
+import { GlobalSearchModal } from './components/search/GlobalSearchModal';
 import { CreateGroupDMModal } from './components/modals/CreateGroupDMModal';
 import { IncomingCallModal } from './components/modals/IncomingCallModal';
 import { BetaFeedbackModal } from './components/modals/BetaFeedbackModal';
@@ -160,7 +160,7 @@ const NexoraApp: React.FC = () => {
       {activeModal === 'create_channel' && <CreateChannelModal />}
       {activeModal === 'community_settings' && <CommunitySettingsModal />}
       {activeModal === 'user_settings' && <UserSettingsModal />}
-      {activeModal === 'search' && <QuickSwitcherModal />}
+      {activeModal === 'search' && <GlobalSearchModal />}
       {activeModal === 'create_group_dm' && <CreateGroupDMModal />}
       {activeModal === 'beta_feedback' && <BetaFeedbackModal />}
       {(activeModal === 'admin_panel' || activeModal === 'beta_admin') && <AdminControlPanelModal />}

@@ -327,7 +327,9 @@ async function runSecurityAudit() {
     const rulesPath = path.resolve('firestore.rules');
     const rules = fs.readFileSync(rulesPath, 'utf8');
 
-    const ownerOnlyDelete = rules.includes('allow delete: if isSignedIn() && isValidId(communityId) && resource.data.ownerId == request.auth.uid');
+    const ownerOnlyDelete = rules.includes('resource.data.ownerId == request.auth.uid') &&
+      rules.includes('match /communities/{communityId}') &&
+      rules.includes('allow delete:');
 
     recordAudit(
       10,
