@@ -1,0 +1,114 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with display information and presence status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "tag": { "type": "string" },
+        "avatar": { "type": "string" },
+        "bannerColor": { "type": "string" },
+        "status": { "type": "string", "enum": ["online", "idle", "dnd", "offline"] },
+        "customStatus": { "type": "string" },
+        "bio": { "type": "string" },
+        "joinedAt": { "type": "string" }
+      },
+      "required": ["id", "username", "displayName", "tag", "avatar", "status", "joinedAt"]
+    },
+    "Community": {
+      "title": "Community",
+      "description": "A community Hub in NEXORA",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "tagline": { "type": "string" },
+        "icon": { "type": "string" },
+        "banner": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "description": { "type": "string" },
+        "isPublic": { "type": "boolean" },
+        "inviteCode": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "ownerId", "isPublic"]
+    },
+    "CommunityMember": {
+      "title": "CommunityMember",
+      "description": "Membership mapping associating a user to a community Hub",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["owner", "admin", "moderator", "member"] },
+        "joinedAt": { "type": "string" },
+        "displayName": { "type": "string" },
+        "avatar": { "type": "string" }
+      },
+      "required": ["userId", "role", "joinedAt"]
+    },
+    "Channel": {
+      "title": "Channel",
+      "description": "A communication frequency inside a community Hub",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "communityId": { "type": "string" },
+        "name": { "type": "string" },
+        "topic": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "voice", "announcement"] },
+        "categoryId": { "type": "string" },
+        "isPrivate": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "communityId", "name", "type"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A transmission posted inside a channel frequency",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "communityId": { "type": "string" },
+        "channelId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorAvatar": { "type": "string" },
+        "authorRole": { "type": "string" },
+        "authorTag": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "editedAt": { "type": "string" },
+        "pinned": { "type": "boolean" },
+        "reactions": { "type": "array" },
+        "attachments": { "type": "array" },
+        "replyTo": { "type": "object" }
+      },
+      "required": ["id", "communityId", "channelId", "authorId", "authorName", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Public user profiles"
+    },
+    "/communities/{communityId}": {
+      "schema": "Community",
+      "description": "Community Hub entities"
+    },
+    "/communities/{communityId}/members/{memberId}": {
+      "schema": "CommunityMember",
+      "description": "Membership mapping subcollection"
+    },
+    "/communities/{communityId}/channels/{channelId}": {
+      "schema": "Channel",
+      "description": "Frequencies belonging to this community Hub"
+    },
+    "/communities/{communityId}/channels/{channelId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Persistent transmissions within a channel frequency"
+    }
+  }
+}

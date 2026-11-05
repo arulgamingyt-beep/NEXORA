@@ -1,0 +1,6 @@
+{
+  "name": "NEXORA — Full-Stack Communication Platform",
+  "description": "Discord-inspired communication platform by NEXORA TECHNOLOGIES with real-time channels, direct messages, rich communities, roles, and a premium violet dark interface.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
