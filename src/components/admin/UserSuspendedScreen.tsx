@@ -108,3 +108,4 @@ export const UserSuspendedScreen: React.FC = () => {
     </div>
   );
 };
+
