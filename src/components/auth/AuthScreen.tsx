@@ -25,7 +25,15 @@ import {
 
 type AuthMode = 'login' | 'register' | 'forgot_password';
 
-export const AuthScreen: React.FC = () => {
+export interface AuthScreenProps {
+  initialMode?: 'login' | 'register';
+  onBackToLanding?: () => void;
+}
+
+export const AuthScreen: React.FC<AuthScreenProps> = ({
+  initialMode = 'login',
+  onBackToLanding,
+}) => {
   const {
     loginWithEmail,
     registerWithEmail,
@@ -34,7 +42,7 @@ export const AuthScreen: React.FC = () => {
     resetPassword,
   } = useNexora();
 
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -288,11 +296,22 @@ export const AuthScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* High-Tech Security Pill */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#121426]/80 border border-violet-500/20 backdrop-blur-md text-[11px] font-mono text-slate-300 shadow-sm">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="hidden md:inline text-slate-400">PROTOCOL:</span>
-          <span className="text-emerald-400 font-semibold">256-BIT ENCRYPTED</span>
+        <div className="flex items-center gap-2.5">
+          {onBackToLanding && (
+            <button
+              onClick={onBackToLanding}
+              className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-xs font-mono transition cursor-pointer flex items-center gap-1.5"
+            >
+              <span>← Back to Overview</span>
+            </button>
+          )}
+
+          {/* High-Tech Security Pill */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#121426]/80 border border-violet-500/20 backdrop-blur-md text-[11px] font-mono text-slate-300 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="hidden md:inline text-slate-400">PROTOCOL:</span>
+            <span className="text-emerald-400 font-semibold">256-BIT ENCRYPTED</span>
+          </div>
         </div>
       </header>
 

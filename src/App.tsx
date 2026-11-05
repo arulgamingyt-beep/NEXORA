@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NexoraProvider, useNexora } from './context/NexoraContext';
 import { TopHubHeader } from './components/navigation/TopHubHeader';
 import { CommunityRail } from './components/navigation/CommunityRail';
@@ -20,6 +20,7 @@ import { BetaFeedbackModal } from './components/modals/BetaFeedbackModal';
 import { BetaFeedbackAdminModal } from './components/modals/BetaFeedbackAdminModal';
 import { ActiveCallRoom } from './components/calling/ActiveCallRoom';
 import { AuthScreen } from './components/auth/AuthScreen';
+import { LandingPage } from './components/landing/LandingPage';
 import { CyberBootLoader } from './components/auth/CyberBootLoader';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { CheckCircle, Info, AlertTriangle } from 'lucide-react';
@@ -36,6 +37,16 @@ const NexoraApp: React.FC = () => {
     isAuthenticated,
     isAuthLoading,
   } = useNexora();
+
+  const [authView, setAuthView] = useState<'login' | 'register' | null>(null);
+
+  // If user arrives via invite link (?invite=...) or ?login=true, immediately show auth
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('invite') || params.get('login')) {
+      setAuthView('login');
+    }
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -69,9 +80,22 @@ const NexoraApp: React.FC = () => {
     return <CyberBootLoader />;
   }
 
-  // Gateway Access Screen if unauthenticated
+  // Gateway Access Screen or Official Product Landing Page if unauthenticated
   if (!isAuthenticated) {
-    return <AuthScreen />;
+    if (authView) {
+      return (
+        <AuthScreen
+          initialMode={authView}
+          onBackToLanding={() => setAuthView(null)}
+        />
+      );
+    }
+    return (
+      <LandingPage
+        onLogin={() => setAuthView('login')}
+        onGetStarted={() => setAuthView('register')}
+      />
+    );
   }
 
   return (
