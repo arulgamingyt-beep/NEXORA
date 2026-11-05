@@ -309,7 +309,14 @@ export const ActiveCallRoom: React.FC = () => {
               : 'bg-[#181a2e] hover:bg-[#20233d] text-slate-400 hover:text-white border border-white/10'
           }`}
         >
-          <Headphones className="w-5 h-5" />
+          <div className="relative flex items-center justify-center">
+            <Headphones className="w-5 h-5" />
+            {voiceState.isDeafened && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-5 h-0.5 bg-white -rotate-45 rounded-full" />
+              </div>
+            )}
+          </div>
         </button>
 
         {/* Device Settings */}

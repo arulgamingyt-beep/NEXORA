@@ -242,6 +242,7 @@ interface NexoraContextType {
   showToast: (text: string, type?: 'success' | 'info' | 'warning') => void;
   toggleMemberList: () => void;
   toggleSound: () => void;
+  playSoundEffect: (type: 'send' | 'receive' | 'join' | 'leave' | 'mute' | 'unmute' | 'deafen' | 'undeafen') => void;
   toggleMobileSidebar: () => void;
   toggleMobileChannel: () => void;
   getCurrentUserRoleInActiveCommunity: () => UserRole;
@@ -1167,45 +1168,105 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }, 3200);
   };
 
-  const playSoundEffect = (type: 'send' | 'receive' | 'join' | 'leave') => {
+  const playSoundEffect = (type: 'send' | 'receive' | 'join' | 'leave' | 'mute' | 'unmute' | 'deafen' | 'undeafen') => {
     if (!soundEnabled) return;
+    if (typeof window === 'undefined') return;
     try {
-      // Audio synth via Web Audio API - no external file download required!
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Audio synth via Web Audio API - zero external audio asset dependency
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
 
+      const t = ctx.currentTime;
+
       if (type === 'send') {
-        osc.frequency.setValueAtTime(440, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08);
-        gain.gain.setValueAtTime(0.08, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.08);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.exponentialRampToValueAtTime(880, t + 0.08);
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.start(t);
+        osc.stop(t + 0.08);
       } else if (type === 'receive') {
-        osc.frequency.setValueAtTime(600, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(750, ctx.currentTime + 0.12);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.12);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, t);
+        osc.frequency.exponentialRampToValueAtTime(750, t + 0.12);
+        gain.gain.setValueAtTime(0.1, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.start(t);
+        osc.stop(t + 0.12);
       } else if (type === 'join') {
-        osc.frequency.setValueAtTime(320, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(640, ctx.currentTime + 0.15);
-        gain.gain.setValueAtTime(0.12, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.15);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320, t);
+        osc.frequency.exponentialRampToValueAtTime(640, t + 0.15);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+        osc.start(t);
+        osc.stop(t + 0.15);
       } else if (type === 'leave') {
-        osc.frequency.setValueAtTime(540, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(270, ctx.currentTime + 0.12);
-        gain.gain.setValueAtTime(0.09, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.12);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(540, t);
+        osc.frequency.exponentialRampToValueAtTime(270, t + 0.12);
+        gain.gain.setValueAtTime(0.09, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.start(t);
+        osc.stop(t + 0.12);
+      } else if (type === 'mute') {
+        // Discord-style crisp downward two-tone chirp (500Hz -> 330Hz)
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(500, t);
+        osc.frequency.setValueAtTime(330, t + 0.05);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.setValueAtTime(0.12, t + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+        osc.start(t);
+        osc.stop(t + 0.13);
+      } else if (type === 'unmute') {
+        // Discord-style bright upward two-tone chirp (330Hz -> 520Hz)
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(330, t);
+        osc.frequency.setValueAtTime(520, t + 0.05);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.setValueAtTime(0.12, t + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+        osc.start(t);
+        osc.stop(t + 0.13);
+      } else if (type === 'deafen') {
+        // Discord-style resonant downward chime (420Hz -> 210Hz)
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(420, t);
+        osc.frequency.setValueAtTime(210, t + 0.06);
+        gain.gain.setValueAtTime(0.14, t);
+        gain.gain.setValueAtTime(0.14, t + 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+        osc.start(t);
+        osc.stop(t + 0.16);
+      } else if (type === 'undeafen') {
+        // Discord-style resonant upward chime (210Hz -> 420Hz)
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(210, t);
+        osc.frequency.setValueAtTime(420, t + 0.06);
+        gain.gain.setValueAtTime(0.14, t);
+        gain.gain.setValueAtTime(0.14, t + 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+        osc.start(t);
+        osc.stop(t + 0.16);
       }
+
+      // Automatically clean up AudioContext after sound finishes
+      setTimeout(() => {
+        try {
+          ctx.close();
+        } catch {}
+      }, 300);
     } catch {
       // Browser audio context restricted before user interaction
     }
@@ -2586,6 +2647,7 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setVoiceState((prev) => {
       const nextMute = !prev.isMuted;
       webrtcVoiceService.setMute(nextMute);
+      playSoundEffect(nextMute ? 'mute' : 'unmute');
       showToast(nextMute ? 'Microphone Muted' : 'Microphone Unmuted', 'info');
       return { ...prev, isMuted: nextMute };
     });
@@ -2595,6 +2657,7 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setVoiceState((prev) => {
       const nextDeafen = !prev.isDeafened;
       webrtcVoiceService.setDeafen(nextDeafen);
+      playSoundEffect(nextDeafen ? 'deafen' : 'undeafen');
       showToast(nextDeafen ? 'Audio Deafen On' : 'Audio Deafen Off', 'info');
       return { ...prev, isDeafened: nextDeafen, isMuted: nextDeafen ? true : prev.isMuted };
     });
@@ -4087,6 +4150,7 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         showToast,
         toggleMemberList,
         toggleSound,
+        playSoundEffect,
         toggleMobileSidebar,
         toggleMobileChannel,
         getCurrentUserRoleInActiveCommunity,

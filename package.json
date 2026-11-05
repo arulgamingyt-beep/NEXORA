@@ -18,6 +18,7 @@
     "test:community": "tsx src/__tests__/community_test_suite.ts",
     "test:friends": "tsx src/__tests__/friends_dm_test_suite.ts",
     "test:voice": "tsx src/__tests__/webrtc_voice_test_suite.ts",
+    "test:sound": "tsx src/__tests__/audio_sound_effects_suite.ts",
     "test:comm": "tsx src/__tests__/advanced_communication_test_suite.ts",
     "test:feedback": "tsx src/__tests__/beta_feedback_test_suite.ts",
     "test:landing": "tsx src/__tests__/landing_page_test_suite.ts",

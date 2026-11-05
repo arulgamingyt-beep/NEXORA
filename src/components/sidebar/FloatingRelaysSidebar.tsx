@@ -286,7 +286,14 @@ export const FloatingRelaysSidebar: React.FC = () => {
                   : 'hover:bg-white/5 hover:text-white'
               }`}
             >
-              <Headphones className="w-3.5 h-3.5" />
+              <div className="relative flex items-center justify-center">
+                <Headphones className="w-3.5 h-3.5" />
+                {voiceState.isDeafened && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-3.5 h-0.5 bg-rose-400 -rotate-45 rounded-full" />
+                  </div>
+                )}
+              </div>
             </button>
 
             <button
