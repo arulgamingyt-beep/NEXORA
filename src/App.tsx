@@ -19,6 +19,7 @@ import { IncomingCallModal } from './components/modals/IncomingCallModal';
 import { ActiveCallRoom } from './components/calling/ActiveCallRoom';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { CyberBootLoader } from './components/auth/CyberBootLoader';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { CheckCircle, Info, AlertTriangle } from 'lucide-react';
 
 const NexoraApp: React.FC = () => {
@@ -141,8 +142,10 @@ const NexoraApp: React.FC = () => {
 
 export default function App() {
   return (
-    <NexoraProvider>
-      <NexoraApp />
-    </NexoraProvider>
+    <ErrorBoundary>
+      <NexoraProvider>
+        <NexoraApp />
+      </NexoraProvider>
+    </ErrorBoundary>
   );
 }
