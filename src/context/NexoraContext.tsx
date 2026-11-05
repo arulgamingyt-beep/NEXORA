@@ -101,6 +101,7 @@ export type ModalType =
   | 'edit_group_dm'
   | 'invite'
   | 'join_invite'
+  | 'community_discovery'
   | 'search'
   | 'auth'
   | 'beta_feedback'

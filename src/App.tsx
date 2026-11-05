@@ -9,6 +9,7 @@ import { MemberList } from './components/members/MemberList';
 import { UserProfileModal } from './components/members/UserProfileModal';
 import { InviteModal } from './components/modals/InviteModal';
 import { JoinInviteModal } from './components/modals/JoinInviteModal';
+import { CommunityDiscoveryModal } from './components/modals/CommunityDiscoveryModal';
 import { CreateCommunityModal } from './components/modals/CreateCommunityModal';
 import { CreateChannelModal } from './components/modals/CreateChannelModal';
 import { CommunitySettingsModal } from './components/modals/CommunitySettingsModal';
@@ -156,6 +157,7 @@ const NexoraApp: React.FC = () => {
       {selectedUserForProfile && <UserProfileModal />}
       {activeModal === 'invite' && <InviteModal />}
       {activeModal === 'join_invite' && <JoinInviteModal />}
+      {activeModal === 'community_discovery' && <CommunityDiscoveryModal />}
       {activeModal === 'create_community' && <CreateCommunityModal />}
       {activeModal === 'create_channel' && <CreateChannelModal />}
       {activeModal === 'community_settings' && <CommunitySettingsModal />}

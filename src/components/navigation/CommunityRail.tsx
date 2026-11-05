@@ -132,7 +132,7 @@ export const CommunityRail: React.FC = () => {
         {/* Explore Communities */}
         <div className="w-full flex items-center justify-center relative group">
           <button
-            onClick={() => openModal('join_invite')}
+            onClick={() => openModal('community_discovery')}
             title="Discover Communities"
             className="w-12 h-12 rounded-3xl bg-[#131526] text-sky-400 hover:bg-sky-600 hover:text-white hover:rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer"
           >
