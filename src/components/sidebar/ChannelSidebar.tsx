@@ -83,7 +83,15 @@ export const ChannelSidebar: React.FC = () => {
           className="w-full h-12 px-4 flex items-center justify-between font-bold text-white hover:bg-white/5 transition border-b border-[#1a1c2e] cursor-pointer"
         >
           <div className="flex items-center gap-2 truncate">
-            <span className="text-lg">{activeCommunity.icon}</span>
+            {activeCommunity.icon?.startsWith('data:') || activeCommunity.icon?.startsWith('http') ? (
+              <img
+                src={activeCommunity.icon}
+                alt=""
+                className="w-5 h-5 rounded-md object-cover shrink-0"
+              />
+            ) : (
+              <span className="text-lg">{activeCommunity.icon}</span>
+            )}
             <span className="truncate text-sm">{activeCommunity.name}</span>
           </div>
           <ChevronDown

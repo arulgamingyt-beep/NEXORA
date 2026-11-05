@@ -68,13 +68,21 @@ export const CommunityRail: React.FC = () => {
 
               <button
                 onClick={() => setActiveCommunity(community.id)}
-                className={`w-12 h-12 flex items-center justify-center text-xl font-bold transition-all duration-200 relative cursor-pointer ${
+                className={`w-12 h-12 flex items-center justify-center text-xl font-bold transition-all duration-200 relative cursor-pointer overflow-hidden ${
                   isActive
                     ? 'bg-[#8247ff] text-white rounded-2xl shadow-lg shadow-purple-600/40 ring-2 ring-violet-400/30'
                     : 'bg-[#131526] text-purple-200 hover:bg-[#8247ff] hover:text-white hover:rounded-2xl rounded-3xl'
                 }`}
               >
-                <span>{community.icon}</span>
+                {community.icon?.startsWith('data:') || community.icon?.startsWith('http') ? (
+                  <img
+                    src={community.icon}
+                    alt={community.name}
+                    className="w-full h-full object-cover rounded-[inherit]"
+                  />
+                ) : (
+                  <span>{community.icon}</span>
+                )}
 
                 {/* Unread badge dot */}
                 {hasUnreads && !isActive && (

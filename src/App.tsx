@@ -42,6 +42,22 @@ const NexoraApp: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [openModal]);
 
+  // Handle URL invitation parameter (?invite=CODE) on load
+  useEffect(() => {
+    if (isAuthenticated) {
+      const params = new URLSearchParams(window.location.search);
+      const inviteCode = params.get('invite');
+      if (inviteCode) {
+        openModal('join_invite', { code: inviteCode.trim() });
+        // Clean up URL without triggering navigation or refresh
+        try {
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
+        } catch {}
+      }
+    }
+  }, [isAuthenticated, openModal]);
+
   // Loading Screen while session persistence verifies credentials
   if (isAuthLoading) {
     return <CyberBootLoader />;

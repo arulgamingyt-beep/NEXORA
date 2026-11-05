@@ -51,11 +51,15 @@ export const InviteModal: React.FC = () => {
     setGeneratedInviteCode(newInv.code);
   };
 
+  const shareUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/?invite=${generatedInviteCode}`
+      : `https://nexora.app/invite/${generatedInviteCode}`;
+
   const handleCopyLink = () => {
-    const fullUrl = `https://nexora.app/invite/${generatedInviteCode}`;
-    navigator.clipboard?.writeText(fullUrl);
+    navigator.clipboard?.writeText(shareUrl);
     setHasCopied(true);
-    showToast(`Copied invite link: ${fullUrl}`, 'success');
+    showToast(`Copied invite link: ${shareUrl}`, 'success');
     setTimeout(() => setHasCopied(false), 2500);
   };
 
@@ -84,8 +88,12 @@ export const InviteModal: React.FC = () => {
         {/* Header */}
         <div className="p-6 pb-4 border-b border-[#20223d] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#8247ff] flex items-center justify-center text-white text-lg font-bold shadow-md shadow-purple-600/30">
-              {targetCommunity.icon}
+            <div className="w-10 h-10 rounded-2xl bg-[#8247ff] flex items-center justify-center text-white text-lg font-bold shadow-md shadow-purple-600/30 overflow-hidden shrink-0">
+              {targetCommunity.icon?.startsWith('data:') || targetCommunity.icon?.startsWith('http') ? (
+                <img src={targetCommunity.icon} alt="" className="w-full h-full object-cover" />
+              ) : (
+                targetCommunity.icon
+              )}
             </div>
             <div>
               <h3 className="font-bold text-white text-base leading-tight tracking-tight">
@@ -157,7 +165,7 @@ export const InviteModal: React.FC = () => {
                   <input
                     type="text"
                     readOnly
-                    value={`https://nexora.app/invite/${generatedInviteCode}`}
+                    value={shareUrl}
                     className="flex-1 bg-transparent text-xs text-violet-200 px-2 py-1 focus:outline-none font-mono"
                   />
                   <button

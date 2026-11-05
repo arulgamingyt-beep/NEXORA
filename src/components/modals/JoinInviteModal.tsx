@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNexora } from '../../context/NexoraContext';
 import { X, KeyRound, Users, ArrowRight } from 'lucide-react';
 
 export const JoinInviteModal: React.FC = () => {
   const {
     activeModal,
+    modalPayload,
     closeModal,
     acceptInvite,
     communities,
@@ -12,8 +13,14 @@ export const JoinInviteModal: React.FC = () => {
     currentUser,
   } = useNexora();
 
-  const [inviteInput, setInviteInput] = useState('');
+  const [inviteInput, setInviteInput] = useState(modalPayload?.code || '');
   const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    if (modalPayload?.code) {
+      setInviteInput(modalPayload.code);
+    }
+  }, [modalPayload]);
 
   if (activeModal !== 'join_invite') return null;
 

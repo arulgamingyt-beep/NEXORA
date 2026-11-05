@@ -33,6 +33,7 @@ export const ChatArea: React.FC = () => {
     isFirestoreConnected,
     isCloudSyncing,
     connectionError,
+    canUserAccessChannel,
   } = useNexora();
 
   const [showPinnedDrawer, setShowPinnedDrawer] = useState(false);
@@ -58,6 +59,10 @@ export const ChatArea: React.FC = () => {
     : `Direct encrypted relay with @${otherDMUser?.username} (${otherDMUser?.tag})`;
 
   const pinnedMessages = messages.filter((m) => m.pinned);
+
+  const isChannelRestricted = Boolean(
+    activeCommunity && activeChannel && !canUserAccessChannel(activeChannel)
+  );
 
   const filteredMessages = searchInFrequency.trim()
     ? messages.filter((m) =>
@@ -274,61 +279,85 @@ export const ChatArea: React.FC = () => {
           </div>
         )}
 
-        {/* Transmission Stream Feed */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5">
-          {/* Cyberpunk Frequency Welcome Banner */}
-          <div className="py-5 px-5 bg-gradient-to-r from-violet-950/40 via-purple-950/20 to-indigo-950/30 rounded-3xl border border-violet-500/25 mb-4 shadow-lg relative overflow-hidden">
-            <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-violet-600/10 rounded-full blur-2xl pointer-events-none" />
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 hex-clip bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-violet-600/40">
-                {activeCommunity ? activeCommunity.icon : '⚡'}
-              </div>
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-widest text-violet-400 font-bold block">
-                  FREQUENCY INITIALIZED
-                </span>
-                <h2 className="text-base sm:text-lg font-extrabold text-white">
-                  {activeCommunity ? `#${activeChannel?.name}` : `@${otherDMUser?.displayName}`}
-                </h2>
-              </div>
+        {/* Transmission Stream Feed or Locked Access Screen */}
+        {isChannelRestricted ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none bg-[#0a0b16]">
+            <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4 shadow-xl shadow-amber-500/10">
+              <Lock className="w-8 h-8" />
             </div>
-            <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
-              {activeCommunity
-                ? `Transmitting on #${activeChannel?.name}. Real-time protocol active with cryptographic token verification.`
-                : `Encrypted point-to-point relay established with @${otherDMUser?.username}.`}
+            <h2 className="text-xl font-bold text-white mb-2">Restricted Transmission Channel</h2>
+            <p className="text-xs sm:text-sm text-slate-400 max-w-md leading-relaxed mb-4">
+              You do not possess the required security clearance to access{' '}
+              <span className="text-violet-300 font-mono font-semibold">#{activeChannel?.name}</span>.
+              This frequency is restricted to authorized roles (Administrator / Owner).
             </p>
+            <div className="px-3.5 py-1.5 rounded-xl bg-[#16182c] border border-amber-500/30 text-[11px] font-mono text-amber-300 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              <span>ACCESS DENIED • INSUFFICIENT OPERATIVE ROLE</span>
+            </div>
           </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5">
+              {/* Cyberpunk Frequency Welcome Banner */}
+              <div className="py-5 px-5 bg-gradient-to-r from-violet-950/40 via-purple-950/20 to-indigo-950/30 rounded-3xl border border-violet-500/25 mb-4 shadow-lg relative overflow-hidden">
+                <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-violet-600/10 rounded-full blur-2xl pointer-events-none" />
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 hex-clip bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-violet-600/40 overflow-hidden">
+                    {activeCommunity?.icon?.startsWith('data:') || activeCommunity?.icon?.startsWith('http') ? (
+                      <img src={activeCommunity.icon} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      activeCommunity ? activeCommunity.icon : '⚡'
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-violet-400 font-bold block">
+                      FREQUENCY INITIALIZED
+                    </span>
+                    <h2 className="text-base sm:text-lg font-extrabold text-white">
+                      {activeCommunity ? `#${activeChannel?.name}` : `@${otherDMUser?.displayName}`}
+                    </h2>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+                  {activeCommunity
+                    ? `Transmitting on #${activeChannel?.name}. Real-time protocol active with cryptographic token verification.`
+                    : `Encrypted point-to-point relay established with @${otherDMUser?.username}.`}
+                </p>
+              </div>
 
-          {searchInFrequency && (
-            <div className="px-3 py-1.5 bg-violet-600/20 border border-violet-500/30 rounded-xl text-xs text-violet-300 flex items-center justify-between font-mono">
-              <span>Matching: {filteredMessages.length} transmissions for "{searchInFrequency}"</span>
-              <button onClick={() => setSearchInFrequency('')} className="underline hover:text-white">
-                Clear
-              </button>
+              {searchInFrequency && (
+                <div className="px-3 py-1.5 bg-violet-600/20 border border-violet-500/30 rounded-xl text-xs text-violet-300 flex items-center justify-between font-mono">
+                  <span>Matching: {filteredMessages.length} transmissions for "{searchInFrequency}"</span>
+                  <button onClick={() => setSearchInFrequency('')} className="underline hover:text-white">
+                    Clear
+                  </button>
+                </div>
+              )}
+
+              {filteredMessages.length === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-500 font-mono">
+                  NO TRANSMISSIONS LOGGED. TRANSMIT THE FIRST PACKET BELOW.
+                </div>
+              ) : (
+                filteredMessages.map((message) => (
+                  <MessageItem key={message.id} message={message} />
+                ))
+              )}
+
+              <div ref={messagesEndRef} />
             </div>
-          )}
 
-          {filteredMessages.length === 0 ? (
-            <div className="text-center py-8 text-xs text-slate-500 font-mono">
-              NO TRANSMISSIONS LOGGED. TRANSMIT THE FIRST PACKET BELOW.
-            </div>
-          ) : (
-            filteredMessages.map((message) => (
-              <MessageItem key={message.id} message={message} />
-            ))
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Transmission Composer */}
-        <MessageComposer
-          placeholder={
-            activeCommunity
-              ? `Message #${activeChannel?.name || 'frequency'}...`
-              : `Message @${otherDMUser?.displayName || 'operative'}...`
-          }
-        />
+            {/* Transmission Composer */}
+            <MessageComposer
+              placeholder={
+                activeCommunity
+                  ? `Message #${activeChannel?.name || 'frequency'}...`
+                  : `Message @${otherDMUser?.displayName || 'operative'}...`
+              }
+            />
+          </>
+        )}
     </div>
   );
 };

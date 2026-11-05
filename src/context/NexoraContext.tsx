@@ -3,6 +3,7 @@ import {
   User,
   Community,
   Channel,
+  ChannelCategory,
   Message,
   DMConversation,
   AuditLogEntry,
@@ -136,9 +137,13 @@ interface NexoraContextType {
   setEditingMessageId: (messageId: string | null) => void;
   createCommunity: (name: string, tagline: string, description: string, icon: string, isPublic: boolean) => string;
   updateCommunity: (communityId: string, updates: Partial<Community>) => void;
+  deleteCommunity: (communityId: string) => void;
   leaveCommunity: (communityId: string) => void;
   createChannel: (communityId: string, name: string, type: ChannelType, topic?: string, categoryId?: string, isPrivate?: boolean) => void;
+  updateChannel: (communityId: string, channelId: string, updates: Partial<Channel>) => void;
   deleteChannel: (communityId: string, channelId: string) => void;
+  createChannelCategory: (communityId: string, name: string) => void;
+  canUserAccessChannel: (channel: Channel) => boolean;
   createInvite: (communityId: string, options: { expiresAt: string; maxUses: number; directUserId?: string }) => CommunityInvite;
   acceptInvite: (inviteCodeOrId: string) => boolean;
   declineInvite: (inviteId: string) => void;
@@ -1171,14 +1176,69 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setActiveChannelId(`chan_${newId}_general`);
     showToast(`Community "${name}" successfully created!`, 'success');
     closeModal();
+
+    try {
+      setDoc(doc(db, 'communities', newId), {
+        id: newId,
+        name,
+        tagline: tagline || 'CONNECT WITHOUT LIMITS',
+        icon: icon || '⚡',
+        banner: newCommunity.banner,
+        ownerId: currentUser.id,
+        description: description || 'A community space powered by NEXORA.',
+        isPublic,
+        inviteCode,
+        createdAt: new Date().toISOString(),
+      }).catch(() => {});
+    } catch {}
+
     return newId;
   };
 
   const updateCommunity = (communityId: string, updates: Partial<Community>) => {
+    const role = getCurrentUserRoleInActiveCommunity();
+    if (role !== 'owner' && role !== 'admin') {
+      showToast('Only Administrators and Owners can update community settings.', 'warning');
+      return;
+    }
+
     setCommunities((prev) =>
       prev.map((c) => (c.id === communityId ? { ...c, ...updates } : c))
     );
+
+    try {
+      updateDoc(doc(db, 'communities', communityId), updates).catch(() => {});
+    } catch {}
+
     showToast('Community settings updated', 'success');
+  };
+
+  const deleteCommunity = (communityId: string) => {
+    const comm = communities.find((c) => c.id === communityId);
+    if (!comm) return;
+    if (comm.ownerId !== currentUser.id) {
+      showToast('Only the community Owner can dissolve this space.', 'warning');
+      return;
+    }
+
+    setCommunities((prev) => prev.filter((c) => c.id !== communityId));
+    if (activeCommunityId === communityId) {
+      const remaining = communities.filter((c) => c.id !== communityId);
+      if (remaining.length > 0) {
+        setActiveCommunityId(remaining[0].id);
+        setActiveChannelId(remaining[0].channels[0]?.id || null);
+      } else {
+        setActiveCommunityId(null);
+        setActiveDMId(dmConversations[0]?.id || null);
+      }
+    }
+
+    try {
+      deleteDoc(doc(db, 'communities', communityId)).catch(() => {});
+    } catch {}
+
+    closeModal();
+    showToast(`Community "${comm.name}" has been dissolved.`, 'info');
   };
 
   const leaveCommunity = (communityId: string) => {
@@ -1212,6 +1272,12 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     categoryId?: string,
     isPrivate?: boolean
   ) => {
+    const role = getCurrentUserRoleInActiveCommunity();
+    if (role !== 'owner' && role !== 'admin') {
+      showToast('Only Administrators and Owners can create channels.', 'warning');
+      return;
+    }
+
     const cleanName = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
     if (!cleanName) return;
 
@@ -1273,6 +1339,12 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteChannel = (communityId: string, channelId: string) => {
+    const role = getCurrentUserRoleInActiveCommunity();
+    if (role !== 'owner' && role !== 'admin') {
+      showToast('Only Administrators and Owners can delete channels.', 'warning');
+      return;
+    }
+
     const comm = communities.find((c) => c.id === communityId);
     if (!comm) return;
     if (comm.channels.length <= 1) {
@@ -1310,6 +1382,72 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setAuditLogs((prev) => [auditLog, ...prev]);
 
     showToast(`Channel #${channelToDelete?.name} deleted`, 'info');
+  };
+
+  const updateChannel = (communityId: string, channelId: string, updates: Partial<Channel>) => {
+    const role = getCurrentUserRoleInActiveCommunity();
+    if (role !== 'owner' && role !== 'admin') {
+      showToast('Only Administrators and Owners can edit channels.', 'warning');
+      return;
+    }
+
+    setCommunities((prev) =>
+      prev.map((c) => {
+        if (c.id !== communityId) return c;
+        return {
+          ...c,
+          channels: c.channels.map((ch) => {
+            if (ch.id !== channelId) return ch;
+            return { ...ch, ...updates };
+          }),
+        };
+      })
+    );
+
+    const auditLog: AuditLogEntry = {
+      id: 'log_' + Date.now(),
+      communityId,
+      actorName: currentUser.displayName,
+      actorRole: role,
+      action: 'channel_create',
+      details: `Updated channel #${updates.name || channelId}`,
+      timestamp: 'Just now',
+    };
+    setAuditLogs((prev) => [auditLog, ...prev]);
+
+    try {
+      updateDoc(doc(db, 'communities', communityId, 'channels', channelId), updates).catch(() => {});
+    } catch {}
+
+    showToast('Channel settings updated', 'success');
+  };
+
+  const createChannelCategory = (communityId: string, name: string) => {
+    const cleanName = name.trim().toUpperCase();
+    if (!cleanName) return;
+    const newCatId = 'cat_' + Date.now().toString(36);
+
+    setCommunities((prev) =>
+      prev.map((c) => {
+        if (c.id !== communityId) return c;
+        const newCat: ChannelCategory = {
+          id: newCatId,
+          communityId,
+          name: cleanName,
+          order: c.categories.length,
+        };
+        return { ...c, categories: [...c.categories, newCat] };
+      })
+    );
+    showToast(`Category "${cleanName}" created`, 'success');
+  };
+
+  const canUserAccessChannel = (channel: Channel): boolean => {
+    if (!channel.isPrivate) return true;
+    const role = getCurrentUserRoleInActiveCommunity();
+    if (role === 'owner') return true;
+    if (channel.allowedRoles && channel.allowedRoles.includes(role)) return true;
+    return false;
   };
 
   // COMMUNITY INVITATION SYSTEM
@@ -1355,12 +1493,20 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const acceptInvite = (inviteCodeOrId: string): boolean => {
-    // Search by code or id
-    const cleanSearch = inviteCodeOrId.trim().toUpperCase();
+    // Extract code if a full URL or query parameter was provided
+    let raw = inviteCodeOrId.trim();
+    if (raw.includes('invite=')) {
+      raw = raw.split('invite=')[1]?.split('&')[0] || raw;
+    } else if (raw.includes('/invite/')) {
+      raw = raw.split('/invite/')[1]?.split('?')[0] || raw;
+    }
+    const cleanSearch = raw.trim().toUpperCase();
+
     const invite = communityInvites.find(
       (inv) =>
         (inv.code.toUpperCase() === cleanSearch ||
           inv.id === inviteCodeOrId ||
+          inv.id === raw ||
           inv.code.toUpperCase().replace('HTTPS://NEXORA.APP/INVITE/', '') === cleanSearch) &&
         inv.status !== 'revoked' &&
         inv.status !== 'declined'
@@ -1369,6 +1515,21 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let targetCommunity: Community | undefined;
 
     if (invite) {
+      // Check max uses limit
+      if (invite.maxUses > 0 && invite.usesCount >= invite.maxUses) {
+        showToast('This invitation link has reached its maximum usage limit.', 'warning');
+        return false;
+      }
+
+      // Check expiration
+      if (invite.expiresAt && invite.expiresAt !== 'never') {
+        const expTime = new Date(invite.expiresAt).getTime();
+        if (!isNaN(expTime) && expTime < Date.now()) {
+          showToast('This invitation link has expired.', 'warning');
+          return false;
+        }
+      }
+
       targetCommunity = communities.find((c) => c.id === invite.communityId);
     } else {
       // Also match direct community inviteCode
@@ -1466,6 +1627,29 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const updateMemberRole = (communityId: string, targetUserId: string, newRole: UserRole) => {
     const comm = communities.find((c) => c.id === communityId);
     if (!comm) return;
+    const actorRole = getCurrentUserRoleInActiveCommunity();
+    if (actorRole !== 'owner' && actorRole !== 'admin') {
+      showToast('Only Administrators and Owners can manage roles.', 'warning');
+      return;
+    }
+
+    const targetMember = comm.members.find((m) => m.userId === targetUserId);
+    const targetCurrentRole = targetMember?.role || 'member';
+
+    // Cannot modify the owner unless you are the owner
+    if (targetUserId === comm.ownerId && currentUser.id !== comm.ownerId) {
+      showToast('Cannot modify the Community Owner.', 'warning');
+      return;
+    }
+
+    // Admins cannot demote or promote other admins or owners, and cannot grant owner role
+    if (actorRole === 'admin') {
+      if (targetCurrentRole === 'admin' || targetCurrentRole === 'owner' || newRole === 'owner') {
+        showToast('Administrators cannot modify other Administrators or assign Owner role.', 'warning');
+        return;
+      }
+    }
+
     const targetUser = allUsers[targetUserId];
 
     setCommunities((prev) =>
@@ -1500,6 +1684,21 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const kickMember = (communityId: string, targetUserId: string, reason?: string) => {
+    const comm = communities.find((c) => c.id === communityId);
+    if (!comm) return;
+    const actorRole = getCurrentUserRoleInActiveCommunity();
+    if (actorRole !== 'owner' && actorRole !== 'admin' && actorRole !== 'moderator') {
+      showToast('You lack permission to kick members.', 'warning');
+      return;
+    }
+    const targetMember = comm.members.find((m) => m.userId === targetUserId);
+    const targetRole = targetMember?.role || 'member';
+    const roleHierarchy: Record<UserRole, number> = { owner: 4, admin: 3, moderator: 2, member: 1 };
+    if (roleHierarchy[actorRole] <= roleHierarchy[targetRole]) {
+      showToast('You cannot kick someone with equal or higher clearance.', 'warning');
+      return;
+    }
+
     const targetUser = allUsers[targetUserId];
     setCommunities((prev) =>
       prev.map((c) => {
@@ -1526,6 +1725,21 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const banMember = (communityId: string, targetUserId: string, reason?: string) => {
+    const comm = communities.find((c) => c.id === communityId);
+    if (!comm) return;
+    const actorRole = getCurrentUserRoleInActiveCommunity();
+    if (actorRole !== 'owner' && actorRole !== 'admin') {
+      showToast('Only Administrators and Owners can ban members.', 'warning');
+      return;
+    }
+    const targetMember = comm.members.find((m) => m.userId === targetUserId);
+    const targetRole = targetMember?.role || 'member';
+    const roleHierarchy: Record<UserRole, number> = { owner: 4, admin: 3, moderator: 2, member: 1 };
+    if (roleHierarchy[actorRole] <= roleHierarchy[targetRole]) {
+      showToast('You cannot ban someone with equal or higher clearance.', 'warning');
+      return;
+    }
+
     const targetUser = allUsers[targetUserId];
     setCommunities((prev) =>
       prev.map((c) => {
@@ -2023,9 +2237,13 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setEditingMessageId,
         createCommunity,
         updateCommunity,
+        deleteCommunity,
         leaveCommunity,
         createChannel,
+        updateChannel,
         deleteChannel,
+        createChannelCategory,
+        canUserAccessChannel,
         createInvite,
         acceptInvite,
         declineInvite,
