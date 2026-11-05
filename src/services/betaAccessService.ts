@@ -129,15 +129,19 @@ export class BetaAccessService {
 
     // 3. Prevent duplicate applications
     const cleanEmail = applicantData.email.trim().toLowerCase();
+    const effectiveUserId =
+      applicantData.userId ||
+      'usr_beta_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+
     for (const app of this.localCache.values()) {
-      if (app.email.toLowerCase() === cleanEmail && app.userId !== applicantData.userId) {
+      if (app.email.toLowerCase() === cleanEmail && app.userId !== effectiveUserId) {
         throw new Error('A beta application with this electronic mail address already exists.');
       }
     }
 
     const newApp: BetaApplication = {
-      id: applicantData.userId,
-      userId: applicantData.userId,
+      id: effectiveUserId,
+      userId: effectiveUserId,
       email: cleanEmail,
       displayName: applicantData.displayName.trim(),
       username: applicantData.username.trim().toLowerCase().replace(/[^a-z0-9_-]/g, ''),
@@ -397,3 +401,4 @@ export class BetaAccessService {
 }
 
 export const betaAccessService = new BetaAccessService();
+

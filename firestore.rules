@@ -35,13 +35,40 @@ service cloud.firestore {
       );
     }
 
-    function isSystemAdmin() {
+    function getPlatformRole() {
+      return (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              'platformRole' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data)
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.platformRole
+        : (request.auth.token.email == 'admin@nexora.io' ? 'super_admin' : 'none');
+    }
+
+    function isSuperAdmin() {
       return isSignedIn() && (
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'owner']) ||
+        getPlatformRole() == 'super_admin' ||
         request.auth.token.email == 'admin@nexora.io' ||
-        request.auth.token.admin == true
+        request.auth.token.super_admin == true
       );
+    }
+
+    function isPlatformAdmin() {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        getPlatformRole() == 'admin' ||
+        request.auth.token.admin == true ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'owner'])
+      );
+    }
+
+    function isPlatformModerator() {
+      return isSignedIn() && (
+        isPlatformAdmin() ||
+        getPlatformRole() == 'moderator'
+      );
+    }
+
+    function isSystemAdmin() {
+      return isPlatformAdmin();
     }
 
     // 0. Connection Test
@@ -52,9 +79,22 @@ service cloud.firestore {
     // 1. Users Collection
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isUser(userId) && isValidId(userId);
-      allow update: if isUser(userId) && isValidId(userId);
-      allow delete: if false;
+      allow create: if isUser(userId) && isValidId(userId) &&
+        // Self-registered users cannot grant themselves super_admin or admin roles!
+        (!('platformRole' in request.resource.data) || request.resource.data.platformRole in ['none', 'moderator']) &&
+        (!('isSuspended' in request.resource.data) || request.resource.data.isSuspended == false);
+
+      allow update: if isSignedIn() && isValidId(userId) && (
+        // Super Admin can update any user's profile and roles
+        isSuperAdmin() ||
+        // Platform Admin can update non-platformRole fields (including suspension)
+        (isPlatformAdmin() && (!('platformRole' in request.resource.data) || request.resource.data.platformRole == resource.data.platformRole)) ||
+        // Normal user self-update: strictly forbidden from altering platformRole or isSuspended!
+        (isUser(userId) &&
+         (!('platformRole' in request.resource.data) || request.resource.data.platformRole == resource.data.platformRole) &&
+         (!('isSuspended' in request.resource.data) || request.resource.data.isSuspended == resource.data.isSuspended))
+      );
+      allow delete: if isSuperAdmin();
 
       // Private settings subcollection - Protected for user only
       match /private/{docId} {
@@ -67,10 +107,18 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && isValidId(communityId) && request.resource.data.ownerId == request.auth.uid;
       allow update: if isSignedIn() && isValidId(communityId) && (
-        resource.data.ownerId == request.auth.uid ||
-        (isCommunityModerator(communityId) && request.resource.data.ownerId == resource.data.ownerId)
+        // Platform Admins can update any community (including suspension)
+        isPlatformAdmin() ||
+        // Community owner / moderator update when community is not suspended
+        ((resource.data.isSuspended != true) && (
+          resource.data.ownerId == request.auth.uid ||
+          (isCommunityModerator(communityId) && request.resource.data.ownerId == resource.data.ownerId)
+        ) &&
+        (!('isSuspended' in request.resource.data) || request.resource.data.isSuspended == resource.data.isSuspended))
       );
-      allow delete: if isSignedIn() && isValidId(communityId) && resource.data.ownerId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(communityId) && (
+        resource.data.ownerId == request.auth.uid || isPlatformAdmin()
+      );
 
       // 3. Community Members Subcollection
       match /members/{memberId} {
@@ -346,6 +394,50 @@ service cloud.firestore {
 
       // Only administrators can delete application records
       allow delete: if isSystemAdmin() && isValidId(appId);
+    }
+
+    // 17. Reports & Moderation Management System
+    match /reports/{reportId} {
+      // Users can read their own submitted reports; Moderators, Admins, and Super Admins can read all reports
+      allow read: if isSignedIn() && (
+        resource == null ||
+        resource.data.reporterId == request.auth.uid ||
+        isPlatformModerator()
+      );
+
+      // Authenticated users can submit a report with initial status = 'pending'
+      allow create: if isSignedIn() && isValidId(reportId) &&
+        request.resource.data.reporterId == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.targetType in ['user', 'message', 'community'] &&
+        request.resource.data.targetId is string &&
+        request.resource.data.reason is string &&
+        request.resource.data.reason.size() >= 3;
+
+      // Only Moderators, Admins, and Super Admins can update status, assign moderation decisions, or notes
+      allow update: if isPlatformModerator() && isValidId(reportId) &&
+        request.resource.data.status in ['pending', 'investigating', 'resolved', 'dismissed'];
+
+      // Only Platform Admins / Super Admins can delete reports
+      allow delete: if isPlatformAdmin() && isValidId(reportId);
+    }
+
+    // 18. Administrator Security Audit Logs (Immutable Ledger)
+    match /admin_audit_logs/{logId} {
+      // Platform Moderators, Admins, and Super Admins can inspect the audit trail
+      allow read: if isPlatformModerator();
+
+      // Only Platform Admins and Super Admins can record audit entries
+      allow create: if isPlatformAdmin() && isValidId(logId) &&
+        request.resource.data.adminId == request.auth.uid &&
+        request.resource.data.action is string &&
+        request.resource.data.timestamp is string;
+
+      // STRICT IMMUTABILITY: Audit records cannot be modified under any circumstances!
+      allow update: if false;
+
+      // Only Super Admins can purge audit records
+      allow delete: if isSuperAdmin() && isValidId(logId);
     }
   }
 }

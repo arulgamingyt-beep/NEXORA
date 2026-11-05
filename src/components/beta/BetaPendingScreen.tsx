@@ -211,3 +211,4 @@ export const BetaPendingScreen: React.FC = () => {
     </div>
   );
 };
+

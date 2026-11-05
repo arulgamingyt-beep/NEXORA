@@ -1,5 +1,7 @@
 export type UserRole = 'owner' | 'admin' | 'moderator' | 'member';
 
+export type PlatformRole = 'super_admin' | 'admin' | 'moderator' | 'none';
+
 export type UserStatus = 'online' | 'idle' | 'dnd' | 'offline';
 
 export type BetaAccessStatus = 'pending' | 'approved' | 'rejected';
@@ -20,6 +22,11 @@ export interface User {
   pronouns?: string;
   joinedAt: string;
   role?: UserRole; // within current community
+  platformRole?: PlatformRole;
+  isSuspended?: boolean;
+  suspendedReason?: string;
+  suspendedAt?: string;
+  reportedCount?: number;
   acceptedLegalVersion?: string;
   acceptedLegalAt?: string;
   betaStatus?: BetaAccessStatus;
@@ -108,6 +115,10 @@ export interface Community {
   channels: Channel[];
   members: CommunityMember[];
   unreadCount?: number;
+  isSuspended?: boolean;
+  suspendedReason?: string;
+  suspendedAt?: string;
+  reportedCount?: number;
 }
 
 export interface DMConversation {
@@ -279,6 +290,60 @@ export interface BetaApplication {
   devices?: string[];
   adminNotes?: string;
 }
+
+export type ReportTargetType = 'user' | 'message' | 'community';
+export type ReportStatus = 'pending' | 'investigating' | 'resolved' | 'dismissed';
+export type ModerationDecision =
+  | 'warning_issued'
+  | 'account_suspended'
+  | 'community_suspended'
+  | 'message_purged'
+  | 'no_violation';
+
+export interface PlatformReport {
+  id: string;
+  reporterId: string;
+  reporterName: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  targetName?: string;
+  reason: string;
+  details?: string;
+  status: ReportStatus;
+  decision?: ModerationDecision;
+  moderatorNotes?: string;
+  resolvedBy?: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
+  createdAt: string;
+}
+
+export interface AdminAuditLog {
+  id: string;
+  adminId: string;
+  adminName: string;
+  adminRole: PlatformRole;
+  action: string;
+  targetType: 'user' | 'community' | 'report' | 'beta_application' | 'system';
+  targetId: string;
+  targetName?: string;
+  details: string;
+  previousValue?: string;
+  updatedValue?: string;
+  timestamp: string;
+}
+
+export interface PlatformDashboardMetrics {
+  totalUsers: number;
+  onlineUsers: number;
+  totalCommunities: number;
+  totalMessages: number;
+  pendingReports: number;
+  suspendedAccounts: number;
+  suspendedCommunities: number;
+  pendingBetaApplications: number;
+}
+
 
 
 

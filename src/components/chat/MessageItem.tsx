@@ -14,6 +14,7 @@ import {
   Terminal,
   Check,
   CheckCheck,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface MessageItemProps {
@@ -34,6 +35,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     setSelectedUserForProfile,
     allUsers,
     showToast,
+    openModal,
   } = useNexora();
 
   const [editContent, setEditContent] = useState(message.content);
@@ -293,6 +295,22 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
             >
               <Copy className="w-3.5 h-3.5" />
             </button>
+
+            {!isAuthor && (
+              <button
+                onClick={() =>
+                  openModal('report_abuse', {
+                    targetType: 'message',
+                    targetId: message.id,
+                    targetName: `Transmission from @${message.authorName}`,
+                  })
+                }
+                title="Report Transmission for Safety Violation"
+                className="p-1.5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition"
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+              </button>
+            )}
 
             {canModerate && (
               <button

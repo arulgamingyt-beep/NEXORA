@@ -38,6 +38,7 @@ export const TopHubHeader: React.FC = () => {
     logout,
     isFirestoreConnected,
     isCloudSyncing,
+    isPlatformModerator,
   } = useNexora();
 
   const [showPersonaMenu, setShowPersonaMenu] = useState(false);
@@ -178,10 +179,10 @@ export const TopHubHeader: React.FC = () => {
         </button>
 
         {/* Admin Feedback Dashboard Button (Admin Only) */}
-        {isAdmin && (
+        {(isAdmin || isPlatformModerator) && (
           <button
-            onClick={() => openModal('beta_admin')}
-            title="Beta Feedback Administration Dashboard"
+            onClick={() => openModal('admin_panel')}
+            title="NEXORA Technologies Administration Control Panel"
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 text-xs font-mono font-bold transition cursor-pointer"
           >
             <ShieldAlert className="w-3.5 h-3.5 text-violet-400" />

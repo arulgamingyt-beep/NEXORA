@@ -19,6 +19,7 @@ import {
   Fingerprint,
   ChevronDown,
   ChevronRight,
+  ShieldAlert,
 } from 'lucide-react';
 import { UserRole, UserStatus } from '../../types';
 
@@ -408,15 +409,32 @@ export const UserProfileModal: React.FC = () => {
                 </div>
               </>
             ) : (
-              /* For another user: Send Message / Relay */
-              <button
-                type="button"
-                onClick={handleStartDM}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-violet-600/30 transition"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span>Send Message</span>
-              </button>
+              /* For another user: Send Message / Relay + Report */
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleStartDM}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-violet-600/30 transition cursor-pointer"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Send Message</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedUserForProfile(null);
+                    openModal('report_abuse', {
+                      targetType: 'user',
+                      targetId: user.id,
+                      targetName: `@${user.username} (${user.displayName})`,
+                    });
+                  }}
+                  title="Report User to Administration"
+                  className="p-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 rounded-xl transition cursor-pointer"
+                >
+                  <ShieldAlert className="w-4 h-4" />
+                </button>
+              </div>
             )}
           </div>
 

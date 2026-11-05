@@ -18,6 +18,9 @@ import { CreateGroupDMModal } from './components/modals/CreateGroupDMModal';
 import { IncomingCallModal } from './components/modals/IncomingCallModal';
 import { BetaFeedbackModal } from './components/modals/BetaFeedbackModal';
 import { BetaFeedbackAdminModal } from './components/modals/BetaFeedbackAdminModal';
+import { AdminControlPanelModal } from './components/admin/AdminControlPanelModal';
+import { UserSuspendedScreen } from './components/admin/UserSuspendedScreen';
+import { ReportAbuseModal } from './components/modals/ReportAbuseModal';
 import { ActiveCallRoom } from './components/calling/ActiveCallRoom';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { LandingPage } from './components/landing/LandingPage';
@@ -39,6 +42,7 @@ const NexoraApp: React.FC = () => {
     isAuthenticated,
     isAuthLoading,
     isBetaApproved,
+    currentUser,
   } = useNexora();
 
   const [authView, setAuthView] = useState<'login' | 'register' | null>(null);
@@ -101,6 +105,11 @@ const NexoraApp: React.FC = () => {
     );
   }
 
+  // Enforce Platform Suspension Lockout Screen
+  if (currentUser?.isSuspended) {
+    return <UserSuspendedScreen />;
+  }
+
   // Beta Access Approval Gate: If user is authenticated but not yet approved for beta
   if (!isBetaApproved) {
     return <BetaPendingScreen />;
@@ -153,7 +162,8 @@ const NexoraApp: React.FC = () => {
       {activeModal === 'search' && <QuickSwitcherModal />}
       {activeModal === 'create_group_dm' && <CreateGroupDMModal />}
       {activeModal === 'beta_feedback' && <BetaFeedbackModal />}
-      {activeModal === 'beta_admin' && <BetaFeedbackAdminModal />}
+      {(activeModal === 'admin_panel' || activeModal === 'beta_admin') && <AdminControlPanelModal />}
+      {activeModal === 'report_abuse' && <ReportAbuseModal />}
       {activeModal === 'welcome' && <WelcomeGuideModal />}
 
       {/* Real-Time Communications HUD */}

@@ -470,3 +470,4 @@ export const WelcomeGuideModal: React.FC<WelcomeGuideModalProps> = ({
     </div>
   );
 };
+

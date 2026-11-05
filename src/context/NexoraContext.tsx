@@ -22,6 +22,12 @@ import {
   CallType,
   CallParticipant,
   BetaAccessStatus,
+  PlatformRole,
+  ReportTargetType,
+  ModerationDecision,
+  AdminAuditLog,
+  PlatformReport,
+  PlatformDashboardMetrics,
 } from '../types';
 import {
   CURRENT_USER,
@@ -79,6 +85,7 @@ import {
 import { webrtcVoiceService } from '../utils/webrtcVoice';
 import { callSignalingService } from '../services/callSignaling';
 import { betaAccessService } from '../services/betaAccessService';
+import { adminService } from '../services/adminService';
 
 export type ModalType =
   | 'user_settings'
@@ -93,6 +100,8 @@ export type ModalType =
   | 'auth'
   | 'beta_feedback'
   | 'beta_admin'
+  | 'admin_panel'
+  | 'report_abuse'
   | 'welcome'
   | null;
 
@@ -234,6 +243,21 @@ interface NexoraContextType {
   endActiveCall: () => Promise<void>;
   toggleCamera: () => Promise<void>;
   toggleScreenShare: () => Promise<void>;
+
+  // Administrative & Moderation Clearance
+  platformRole: PlatformRole;
+  isSuperAdmin: boolean;
+  isPlatformAdmin: boolean;
+  isPlatformModerator: boolean;
+  suspendUser: (targetUserId: string, reason: string) => Promise<{ success: boolean; message: string }>;
+  reactivateUser: (targetUserId: string) => Promise<{ success: boolean; message: string }>;
+  updateUserPlatformRole: (targetUserId: string, newRole: PlatformRole) => Promise<{ success: boolean; message: string }>;
+  suspendCommunity: (communityId: string, reason: string) => Promise<{ success: boolean; message: string }>;
+  unsuspendCommunity: (communityId: string) => Promise<{ success: boolean; message: string }>;
+  submitReport: (targetType: ReportTargetType, targetId: string, reason: string, details?: string) => Promise<{ success: boolean; reportId?: string; message: string }>;
+  resolveReport: (reportId: string, decision: ModerationDecision, notes?: string) => Promise<{ success: boolean; message: string }>;
+  dismissReport: (reportId: string, notes?: string) => Promise<{ success: boolean; message: string }>;
+  revokeBetaAccess: (applicantId: string, reason?: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const NexoraContext = createContext<NexoraContextType | undefined>(undefined);
@@ -368,6 +392,183 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       showToast(`Status updated: ${app.status.toUpperCase()}`, 'info');
     } else {
       showToast('Status checked. Application is still under review.', 'info');
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Administrative & Moderation Clearance Actions
+  // ---------------------------------------------------------------------------
+  const platformRole: PlatformRole = adminService.getEffectiveRole(currentUser);
+  const isSuperAdmin = platformRole === 'super_admin';
+  const isPlatformAdmin = platformRole === 'super_admin' || platformRole === 'admin';
+  const isPlatformModerator =
+    platformRole === 'super_admin' || platformRole === 'admin' || platformRole === 'moderator';
+
+  const suspendUser = async (
+    targetUserId: string,
+    reason: string
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const target = allUsers[targetUserId];
+      if (!target) throw new Error('Target user not found');
+      const updated = await adminService.suspendUser(currentUser, target, reason);
+      setAllUsers((prev) => ({ ...prev, [targetUserId]: updated }));
+      if (currentUser.id === targetUserId) {
+        setCurrentUser(updated);
+      }
+      showToast(`User @${target.username} has been suspended.`, 'warning');
+      return { success: true, message: 'Account suspended.' };
+    } catch (err: any) {
+      showToast(err.message || 'Suspension failed', 'warning');
+      return { success: false, message: err.message || 'Suspension failed' };
+    }
+  };
+
+  const reactivateUser = async (
+    targetUserId: string
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const target = allUsers[targetUserId];
+      if (!target) throw new Error('Target user not found');
+      const updated = await adminService.reactivateUser(currentUser, target);
+      setAllUsers((prev) => ({ ...prev, [targetUserId]: updated }));
+      if (currentUser.id === targetUserId) {
+        setCurrentUser(updated);
+      }
+      showToast(`User @${target.username} has been reactivated.`, 'success');
+      return { success: true, message: 'Account reactivated.' };
+    } catch (err: any) {
+      showToast(err.message || 'Reactivation failed', 'warning');
+      return { success: false, message: err.message || 'Reactivation failed' };
+    }
+  };
+
+  const updateUserPlatformRole = async (
+    targetUserId: string,
+    newRole: PlatformRole
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const target = allUsers[targetUserId];
+      if (!target) throw new Error('Target user not found');
+      const updated = await adminService.updateUserPlatformRole(currentUser, target, newRole);
+      setAllUsers((prev) => ({ ...prev, [targetUserId]: updated }));
+      if (currentUser.id === targetUserId) {
+        setCurrentUser(updated);
+      }
+      showToast(`User @${target.username} role updated to ${newRole.toUpperCase()}.`, 'success');
+      return { success: true, message: 'Platform role updated.' };
+    } catch (err: any) {
+      showToast(err.message || 'Role update failed', 'warning');
+      return { success: false, message: err.message || 'Role update failed' };
+    }
+  };
+
+  const suspendCommunity = async (
+    communityId: string,
+    reason: string
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const comm = communities.find((c) => c.id === communityId);
+      if (!comm) throw new Error('Community not found');
+      const updated = await adminService.suspendCommunity(currentUser, comm, reason);
+      setCommunities((prev) => prev.map((c) => (c.id === communityId ? updated : c)));
+      showToast(`Community "${comm.name}" suspended.`, 'warning');
+      return { success: true, message: 'Community suspended.' };
+    } catch (err: any) {
+      showToast(err.message || 'Community suspension failed', 'warning');
+      return { success: false, message: err.message || 'Community suspension failed' };
+    }
+  };
+
+  const unsuspendCommunity = async (
+    communityId: string
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const comm = communities.find((c) => c.id === communityId);
+      if (!comm) throw new Error('Community not found');
+      const updated = await adminService.unsuspendCommunity(currentUser, comm);
+      setCommunities((prev) => prev.map((c) => (c.id === communityId ? updated : c)));
+      showToast(`Community "${comm.name}" restored.`, 'success');
+      return { success: true, message: 'Community restored.' };
+    } catch (err: any) {
+      showToast(err.message || 'Community restoration failed', 'warning');
+      return { success: false, message: err.message || 'Community restoration failed' };
+    }
+  };
+
+  const submitReport = async (
+    targetType: ReportTargetType,
+    targetId: string,
+    reason: string,
+    details?: string
+  ): Promise<{ success: boolean; reportId?: string; message: string }> => {
+    try {
+      let targetName = targetId;
+      if (targetType === 'user' && allUsers[targetId]) {
+        targetName = `@${allUsers[targetId].username}`;
+      } else if (targetType === 'community') {
+        const comm = communities.find((c) => c.id === targetId);
+        if (comm) targetName = comm.name;
+      } else if (targetType === 'message') {
+        targetName = `Transmission #${targetId.substring(0, 8)}`;
+      }
+
+      const rep = await adminService.submitReport({
+        reporter: currentUser,
+        targetType,
+        targetId,
+        targetName,
+        reason,
+        details,
+      });
+      showToast('Report submitted for administrative review.', 'success');
+      return { success: true, reportId: rep.id, message: 'Report submitted successfully.' };
+    } catch (err: any) {
+      showToast(err.message || 'Report submission failed', 'warning');
+      return { success: false, message: err.message || 'Report submission failed' };
+    }
+  };
+
+  const resolveReport = async (
+    reportId: string,
+    decision: ModerationDecision,
+    notes?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      await adminService.resolveReport(currentUser, reportId, decision, notes);
+      showToast(`Report resolved with decision: ${decision}`, 'success');
+      return { success: true, message: 'Report resolved.' };
+    } catch (err: any) {
+      showToast(err.message || 'Report resolution failed', 'warning');
+      return { success: false, message: err.message || 'Report resolution failed' };
+    }
+  };
+
+  const dismissReport = async (
+    reportId: string,
+    notes?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      await adminService.resolveReport(currentUser, reportId, 'no_violation', notes || 'Dismissed as non-violating.');
+      showToast('Report dismissed.', 'info');
+      return { success: true, message: 'Report dismissed.' };
+    } catch (err: any) {
+      showToast(err.message || 'Dismissal failed', 'warning');
+      return { success: false, message: err.message || 'Dismissal failed' };
+    }
+  };
+
+  const revokeBetaAccess = async (
+    applicantId: string,
+    reason?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      await adminService.revokeBetaAccess(currentUser, applicantId, reason);
+      showToast('Beta access revoked.', 'warning');
+      return { success: true, message: 'Beta access revoked.' };
+    } catch (err: any) {
+      showToast(err.message || 'Revocation failed', 'warning');
+      return { success: false, message: err.message || 'Revocation failed' };
     }
   };
 
@@ -944,6 +1145,14 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const sendMessage = async (content: string, attachments?: Attachment[]) => {
+    if (currentUser.isSuspended) {
+      showToast('Account Suspended: Transmissions locked by platform administration.', 'warning');
+      return;
+    }
+    if (activeCommunityId && activeCommunity?.isSuspended) {
+      showToast('Community Suspended: This community hub has been suspended by administration.', 'warning');
+      return;
+    }
     if (!isBetaApproved) {
       showToast('Beta access pending administrator approval. Transmission locked.', 'warning');
       return;
@@ -2016,6 +2225,10 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const connectVoice = async (channelId: string, channelName: string, communityId: string) => {
+    if (currentUser.isSuspended) {
+      showToast('Account Suspended: Voice mesh access locked.', 'warning');
+      return;
+    }
     if (!isBetaApproved) {
       showToast('Beta access pending administrator approval. Voice/video mesh locked.', 'warning');
       return;
@@ -2141,6 +2354,10 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [activeCall?.id]);
 
   const startCall = async (targetUserId: string, type: CallType) => {
+    if (currentUser.isSuspended) {
+      showToast('Account Suspended: Calling capabilities locked.', 'warning');
+      return;
+    }
     if (isUserBlocked(targetUserId) || isUserBlockedBy(targetUserId)) {
       showToast('Cannot initiate transmission. Operative is blocked.', 'warning');
       return;
@@ -3412,6 +3629,21 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         endActiveCall,
         toggleCamera,
         toggleScreenShare,
+
+        // Administrative & Moderation Clearance
+        platformRole,
+        isSuperAdmin,
+        isPlatformAdmin,
+        isPlatformModerator,
+        suspendUser,
+        reactivateUser,
+        updateUserPlatformRole,
+        suspendCommunity,
+        unsuspendCommunity,
+        submitReport,
+        resolveReport,
+        dismissReport,
+        revokeBetaAccess,
       }}
     >
       {children}

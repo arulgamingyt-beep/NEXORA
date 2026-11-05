@@ -23,6 +23,8 @@ export const CURRENT_USER: User = {
   email: 'alex.rivera@nexora.tech',
   joinedAt: 'November 2026',
   role: 'owner',
+  platformRole: 'super_admin',
+  betaStatus: 'approved',
 };
 
 export const MOCK_USERS: Record<string, User> = {
@@ -40,6 +42,8 @@ export const MOCK_USERS: Record<string, User> = {
     email: 'elena@nexora.tech',
     joinedAt: 'November 2026',
     role: 'admin',
+    platformRole: 'admin',
+    betaStatus: 'approved',
   },
   user_marcus: {
     id: 'user_marcus',
@@ -54,6 +58,8 @@ export const MOCK_USERS: Record<string, User> = {
     email: 'marcus@nexora.tech',
     joinedAt: 'November 2026',
     role: 'moderator',
+    platformRole: 'moderator',
+    betaStatus: 'approved',
   },
   user_sophia: {
     id: 'user_sophia',
