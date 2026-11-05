@@ -22,6 +22,8 @@ import { ActiveCallRoom } from './components/calling/ActiveCallRoom';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { LandingPage } from './components/landing/LandingPage';
 import { CyberBootLoader } from './components/auth/CyberBootLoader';
+import { BetaPendingScreen } from './components/beta/BetaPendingScreen';
+import { WelcomeGuideModal } from './components/beta/WelcomeGuideModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { CheckCircle, Info, AlertTriangle } from 'lucide-react';
 
@@ -36,6 +38,7 @@ const NexoraApp: React.FC = () => {
     toggleMobileSidebar,
     isAuthenticated,
     isAuthLoading,
+    isBetaApproved,
   } = useNexora();
 
   const [authView, setAuthView] = useState<'login' | 'register' | null>(null);
@@ -98,6 +101,11 @@ const NexoraApp: React.FC = () => {
     );
   }
 
+  // Beta Access Approval Gate: If user is authenticated but not yet approved for beta
+  if (!isBetaApproved) {
+    return <BetaPendingScreen />;
+  }
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#070810] text-slate-100 select-none">
       {/* 1. Slim NEXORA Command Deck (40px) */}
@@ -146,6 +154,7 @@ const NexoraApp: React.FC = () => {
       {activeModal === 'create_group_dm' && <CreateGroupDMModal />}
       {activeModal === 'beta_feedback' && <BetaFeedbackModal />}
       {activeModal === 'beta_admin' && <BetaFeedbackAdminModal />}
+      {activeModal === 'welcome' && <WelcomeGuideModal />}
 
       {/* Real-Time Communications HUD */}
       <IncomingCallModal />

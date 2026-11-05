@@ -21,6 +21,7 @@ import {
   CallSession,
   CallType,
   CallParticipant,
+  BetaAccessStatus,
 } from '../types';
 import {
   CURRENT_USER,
@@ -77,6 +78,7 @@ import {
 } from '../utils/authVault';
 import { webrtcVoiceService } from '../utils/webrtcVoice';
 import { callSignalingService } from '../services/callSignaling';
+import { betaAccessService } from '../services/betaAccessService';
 
 export type ModalType =
   | 'user_settings'
@@ -91,6 +93,7 @@ export type ModalType =
   | 'auth'
   | 'beta_feedback'
   | 'beta_admin'
+  | 'welcome'
   | null;
 
 interface ToastInfo {
@@ -157,8 +160,19 @@ interface NexoraContextType {
   markConversationAsRead: (conversationId: string) => void;
 
   // Actions & Auth
+  isBetaApproved: boolean;
   loginWithEmail: (email: string, password: string) => Promise<void>;
-  registerWithEmail: (email: string, password: string, username: string, avatarUrl?: string) => Promise<void>;
+  registerWithEmail: (
+    email: string,
+    password: string,
+    username: string,
+    avatarUrl?: string,
+    displayName?: string,
+    experience?: string,
+    devices?: string[]
+  ) => Promise<void>;
+  reviewBetaApplication: (applicantId: string, status: 'approved' | 'rejected', notes?: string) => Promise<void>;
+  refreshBetaStatus: () => Promise<void>;
   loginWithGoogle: (customIdentity?: { email: string; displayName: string; avatar?: string }) => Promise<void>;
   quickDemoLogin: () => Promise<void>;
   logout: () => Promise<void>;
@@ -332,6 +346,45 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return {};
     }
   });
+
+  const isBetaApproved =
+    currentUser.betaStatus === 'approved' ||
+    currentUser.role === 'admin' ||
+    currentUser.role === 'owner' ||
+    currentUser.email === 'admin@nexora.io' ||
+    (currentUser as any).isAdmin === true;
+
+  const reviewBetaApplication = async (applicantId: string, status: 'approved' | 'rejected', notes?: string) => {
+    await betaAccessService.reviewApplication(currentUser, applicantId, status, notes);
+    showToast(`Beta applicant status updated to ${status.toUpperCase()}.`, 'success');
+  };
+
+  const refreshBetaStatus = async () => {
+    if (!currentUser?.id) return;
+    const app = await betaAccessService.getApplication(currentUser.id);
+    if (app && app.status !== currentUser.betaStatus) {
+      const updated = { ...currentUser, betaStatus: app.status };
+      setCurrentUser(updated);
+      showToast(`Status updated: ${app.status.toUpperCase()}`, 'info');
+    } else {
+      showToast('Status checked. Application is still under review.', 'info');
+    }
+  };
+
+  // Real-time status update for unapproved applicants
+  useEffect(() => {
+    if (!currentUser?.id || isBetaApproved) return;
+    const unsub = betaAccessService.listenToApplication(currentUser.id, (app) => {
+      if (app && app.status && app.status !== currentUser.betaStatus) {
+        setCurrentUser((prev) => ({ ...prev, betaStatus: app.status }));
+        if (app.status === 'approved') {
+          showToast('🎉 Access Granted! Welcome to the NEXORA Private Beta.', 'success');
+          openModal('welcome');
+        }
+      }
+    });
+    return () => unsub();
+  }, [currentUser?.id, currentUser?.betaStatus, isBetaApproved]);
 
   // Mobile layout toggles
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -891,6 +944,10 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const sendMessage = async (content: string, attachments?: Attachment[]) => {
+    if (!isBetaApproved) {
+      showToast('Beta access pending administrator approval. Transmission locked.', 'warning');
+      return;
+    }
     if (!content.trim() && (!attachments || attachments.length === 0)) return;
 
     const feedKey = activeCommunityId ? activeChannelId : activeDMId;
@@ -1283,6 +1340,10 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     icon: string,
     isPublic: boolean
   ): string => {
+    if (!isBetaApproved) {
+      showToast('Beta access pending administrator approval. Community creation locked.', 'warning');
+      return '';
+    }
     const newId = 'comm_' + Date.now().toString(36);
     const inviteCode = `NXR-${name.substring(0, 4).toUpperCase().replace(/[^A-Z]/g, 'X')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -1955,6 +2016,10 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const connectVoice = async (channelId: string, channelName: string, communityId: string) => {
+    if (!isBetaApproved) {
+      showToast('Beta access pending administrator approval. Voice/video mesh locked.', 'warning');
+      return;
+    }
     playSoundEffect('join');
 
     // Initialize real WebRTC peer mesh callbacks
@@ -2869,34 +2934,62 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     email: string,
     password: string,
     username: string,
-    avatarUrl?: string
+    avatarUrl?: string,
+    displayName?: string,
+    experience?: string,
+    devices?: string[]
   ) => {
     const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'operative';
     const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Check duplicate account or application
+    if (betaAccessService.isDuplicateAccount(cleanEmail, cleanUsername)) {
+      throw new Error('An account or beta application with this electronic mail address already exists. Please log in.');
+    }
+
     const chosenAvatar = avatarUrl || getRandomCyberAvatar();
     const tag = `#${Math.floor(1000 + Math.random() * 9000)}`;
+    const finalDisplayName = (displayName && displayName.trim()) || username.trim();
+
+    const isSystemAdminAccount = cleanEmail === 'admin@nexora.io';
+    const initialBetaStatus: BetaAccessStatus = isSystemAdminAccount ? 'approved' : 'pending';
 
     const uid = generateOperativeUID();
     const newProfile: User = {
       id: uid,
       username: cleanUsername,
-      displayName: username.trim(),
+      displayName: finalDisplayName,
       tag,
       avatar: chosenAvatar,
       bannerColor: 'from-violet-800 via-purple-900 to-indigo-950',
       status: 'online',
-      customStatus: 'Operative active in Nexora',
+      customStatus: initialBetaStatus === 'approved' ? 'Operative active in Nexora' : 'Beta Applicant (Pending Review)',
       bio: 'Nexora operative. Transmitting without limits.',
       email: cleanEmail,
       joinedAt: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-      role: 'member',
+      role: isSystemAdminAccount ? 'admin' : 'member',
       acceptedLegalVersion: 'v1.0',
       acceptedLegalAt: new Date().toISOString(),
+      betaStatus: initialBetaStatus,
     };
 
     // Save in Vault so registration ALWAYS succeeds immediately!
     const passHash = await hashSecurityKey(password);
     saveVaultAccount({ user: newProfile, passwordHash: passHash });
+
+    // Submit Beta Application to access registry
+    try {
+      await betaAccessService.submitApplication({
+        userId: newProfile.id,
+        email: cleanEmail,
+        displayName: finalDisplayName,
+        username: cleanUsername,
+        experience: experience || 'General Beta Tester',
+        devices: devices && devices.length > 0 ? devices : ['Desktop Web'],
+      });
+    } catch (appErr: any) {
+      console.warn('[BetaRegistration] Application submit notice:', appErr);
+    }
 
     // Also attempt Firebase registration in the background if possible
     try {
@@ -2904,15 +2997,24 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const fbUser = userCredential.user;
       setAuthUser(fbUser);
       newProfile.id = fbUser.uid;
-      await updateProfile(fbUser, { displayName: cleanUsername, photoURL: chosenAvatar }).catch(() => {});
+      await updateProfile(fbUser, { displayName: finalDisplayName, photoURL: chosenAvatar }).catch(() => {});
       await setDoc(doc(db, 'users', fbUser.uid), newProfile).catch(() => {});
-    } catch {}
+    } catch (firebaseErr: any) {
+      if (firebaseErr?.code === 'auth/email-already-in-use') {
+        throw new Error('This electronic mail address is already registered in NEXORA Authentication. Please log in.');
+      }
+    }
 
     setActiveVaultSession(newProfile);
     setVaultUser(newProfile);
     setCurrentUser(newProfile);
     setAllUsers((prev) => ({ ...prev, [newProfile.id]: newProfile }));
-    showToast(`Transmission secure! Welcome to NEXORA, Operative @${cleanUsername}.`, 'success');
+
+    if (initialBetaStatus === 'pending') {
+      showToast(`Beta application received! Your registration is under review.`, 'info');
+    } else {
+      showToast(`Transmission secure! Welcome to NEXORA, Operative @${cleanUsername}.`, 'success');
+    }
   };
 
   const loginWithGoogle = async (customIdentity?: { email: string; displayName: string; avatar?: string }) => {
@@ -3245,6 +3347,9 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         leaveGroupDM,
         setTypingStatus,
         markConversationAsRead,
+        isBetaApproved,
+        reviewBetaApplication,
+        refreshBetaStatus,
         loginWithEmail,
         registerWithEmail,
         loginWithGoogle,

@@ -239,6 +239,7 @@ export async function getOrCreateDemoAccount(): Promise<User> {
       email: demoEmail,
       joinedAt: 'Nov 2026',
       role: 'admin',
+      betaStatus: 'approved',
     };
     const passwordHash = await hashSecurityKey('Nexora2026!');
     account = { user: demoUser, passwordHash };

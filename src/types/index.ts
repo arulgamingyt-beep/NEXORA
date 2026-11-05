@@ -2,6 +2,8 @@ export type UserRole = 'owner' | 'admin' | 'moderator' | 'member';
 
 export type UserStatus = 'online' | 'idle' | 'dnd' | 'offline';
 
+export type BetaAccessStatus = 'pending' | 'approved' | 'rejected';
+
 export interface User {
   id: string;
   username: string;
@@ -20,6 +22,7 @@ export interface User {
   role?: UserRole; // within current community
   acceptedLegalVersion?: string;
   acceptedLegalAt?: string;
+  betaStatus?: BetaAccessStatus;
 }
 
 export type ChannelType = 'text' | 'voice' | 'announcement';
@@ -261,5 +264,21 @@ export interface BetaFeedbackItem {
   createdAt: string;
   updatedAt?: string;
 }
+
+export interface BetaApplication {
+  id: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  username: string;
+  status: BetaAccessStatus;
+  appliedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  experience?: string;
+  devices?: string[];
+  adminNotes?: string;
+}
+
 
 

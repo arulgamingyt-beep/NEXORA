@@ -48,6 +48,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [primaryDevice, setPrimaryDevice] = useState('Desktop Web (Chrome / Edge)');
   const [selectedAvatar, setSelectedAvatar] = useState<string>(CYBER_AVATARS[0].url);
   const [customAvatarUrl, setCustomAvatarUrl] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -156,8 +158,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
     setIsLoading(true);
     try {
+      const finalDisplayName = displayName.trim() || cleanUsername;
       const finalAvatar = customAvatarUrl.trim() || selectedAvatar;
-      await registerWithEmail(emailOrPhone.trim(), password, cleanUsername, finalAvatar);
+      await registerWithEmail(
+        emailOrPhone.trim(),
+        password,
+        cleanUsername,
+        finalAvatar,
+        finalDisplayName,
+        'Private Beta Operative',
+        [primaryDevice]
+      );
     } catch (err: any) {
       setErrorMessage(parseCleanError(err));
     } finally {
@@ -560,41 +571,78 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           {/* 2. REGISTRATION FORM */}
           {mode === 'register' && (
             <form onSubmit={handleRegister} className="space-y-4">
-              {/* Operative Callsign */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
+              {/* Operative Display Name & Callsign (Two Columns) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
                   <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                     <UserIcon className="w-3.5 h-3.5 text-violet-400" />
-                    <span>Operative Callsign (Username)</span>
+                    <span>Display Name</span>
                   </label>
-                  <span className="text-[10px] font-mono text-violet-400">
-                    {username ? `@${username.toLowerCase().replace(/[^a-z0-9_-]/g, '')}` : '@callsign'}
-                  </span>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="e.g. Alex Vance"
+                    required
+                    className="w-full bg-[#111322] border border-violet-500/25 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none transition font-sans"
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="cypher_operative"
-                  required
-                  className="w-full bg-[#111322] border border-violet-500/25 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none transition font-mono"
-                />
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                      <UserIcon className="w-3.5 h-3.5 text-violet-400" />
+                      <span>Callsign</span>
+                    </label>
+                    <span className="text-[10px] font-mono text-violet-400">
+                      {username ? `@${username.toLowerCase().replace(/[^a-z0-9_-]/g, '')}` : '@callsign'}
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="alex_vance"
+                    required
+                    className="w-full bg-[#111322] border border-violet-500/25 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none transition font-mono"
+                  />
+                </div>
               </div>
 
-              {/* Electronic Mail Address */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-violet-400" />
-                  <span>Electronic Mail Address</span>
-                </label>
-                <input
-                  type="email"
-                  value={emailOrPhone}
-                  onChange={(e) => setEmailOrPhone(e.target.value)}
-                  placeholder="operative@nexora.tech"
-                  required
-                  className="w-full bg-[#111322] border border-violet-500/25 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none transition font-sans"
-                />
+              {/* Electronic Mail Address & Testing Environment */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-violet-400" />
+                    <span>Electronic Mail</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={emailOrPhone}
+                    onChange={(e) => setEmailOrPhone(e.target.value)}
+                    placeholder="operative@nexora.tech"
+                    required
+                    className="w-full bg-[#111322] border border-violet-500/25 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none transition font-sans"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                    <Radio className="w-3.5 h-3.5 text-violet-400" />
+                    <span>Testing Environment</span>
+                  </label>
+                  <select
+                    value={primaryDevice}
+                    onChange={(e) => setPrimaryDevice(e.target.value)}
+                    className="w-full bg-[#111322] border border-violet-500/25 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition font-mono cursor-pointer"
+                  >
+                    <option value="Desktop Web (Chrome / Edge)">Desktop Web (Chrome / Edge)</option>
+                    <option value="Apple iPhone (iOS Safari)">Apple iPhone (iOS Safari)</option>
+                    <option value="Android Mobile (Chrome)">Android Mobile (Chrome)</option>
+                    <option value="macOS (Safari / Chromium)">macOS (Safari / Chromium)</option>
+                    <option value="Linux / Other">Linux / Other</option>
+                  </select>
+                </div>
               </div>
 
               {/* Password Grid (Two Columns on Desktop) */}

@@ -21,7 +21,8 @@
     "test:comm": "tsx src/__tests__/advanced_communication_test_suite.ts",
     "test:feedback": "tsx src/__tests__/beta_feedback_test_suite.ts",
     "test:landing": "tsx src/__tests__/landing_page_test_suite.ts",
-    "test:legal": "tsx src/__tests__/legal_documentation_test_suite.ts"
+    "test:legal": "tsx src/__tests__/legal_documentation_test_suite.ts",
+    "test:onboarding": "tsx src/__tests__/beta_onboarding_access_suite.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

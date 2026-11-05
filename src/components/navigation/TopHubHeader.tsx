@@ -15,6 +15,7 @@ import {
   Radio,
   Bug,
   ShieldAlert,
+  Compass,
 } from 'lucide-react';
 import { UserStatus } from '../../types';
 
@@ -154,6 +155,16 @@ export const TopHubHeader: React.FC = () => {
           }`}
         >
           {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+        </button>
+
+        {/* Welcome Manual Button */}
+        <button
+          onClick={() => openModal('welcome')}
+          title="Open NEXORA Welcome Guide & Manual"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-600/10 hover:bg-violet-600/20 text-violet-300 border border-violet-500/20 text-xs font-mono font-bold transition cursor-pointer"
+        >
+          <Compass className="w-3.5 h-3.5 text-violet-400" />
+          <span className="hidden xl:inline">MANUAL</span>
         </button>
 
         {/* Private Beta Feedback Button */}

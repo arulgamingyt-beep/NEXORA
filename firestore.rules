@@ -319,5 +319,33 @@ service cloud.firestore {
       // Only administrators can delete feedback
       allow delete: if isSystemAdmin() && isValidId(feedbackId);
     }
+
+    // Beta Access Applications & Access Control System
+    match /beta_applications/{appId} {
+      // Ordinary applicants can read only their own application; System Admins can read all applications
+      allow read: if isSignedIn() && (
+        resource == null ||
+        resource.data.userId == request.auth.uid ||
+        isSystemAdmin()
+      );
+
+      // Authenticated applicants can submit applications with strict schema validation
+      // STRICT SECURITY: Status MUST be 'pending' upon creation — Users CANNOT approve themselves!
+      allow create: if isSignedIn() && isValidId(appId) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() >= 5 &&
+        request.resource.data.displayName is string &&
+        request.resource.data.displayName.size() >= 2 &&
+        request.resource.data.status == 'pending';
+
+      // STRICT SECURITY: Only authorized System Admins can approve or reject applications
+      // Regular users are completely blocked from modifying status or approving themselves!
+      allow update: if isSystemAdmin() && isValidId(appId) &&
+        request.resource.data.status in ['pending', 'approved', 'rejected'];
+
+      // Only administrators can delete application records
+      allow delete: if isSystemAdmin() && isValidId(appId);
+    }
   }
 }
