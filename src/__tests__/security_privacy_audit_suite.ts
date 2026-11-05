@@ -50,50 +50,62 @@ async function runSecurityAudit() {
   console.log('🔒 NEXORA SECURITY & PRIVACY AUDIT (ROADMAP MILESTONE 2)');
   console.log('======================================================================\n');
 
-  // 1. Password & Cryptographic Key Security
+  // 1. Password & Authoritative Authentication Security
   try {
-    const { hashSecurityKey, verifyVaultCredentials, saveVaultAccount, generateOperativeUID } = await import('../utils/authVault');
-    const pass = 'SuperSecretKey@2026';
-    const hash = await hashSecurityKey(pass);
+    const { purgeLegacyLocalPasswordVault } = await import('../utils/authVault');
 
-    const isHashed = hash !== pass && hash.length === 64; // SHA-256 is 64 hex chars
-    const hasSalt = hash !== (await hashSecurityKey(pass + '_diff'));
+    // Test A: Legacy vault purge routine cleans localStorage
+    globalThis.localStorage.setItem('nexora_auth_vault_users_v1', JSON.stringify({ user: 'hacked' }));
+    purgeLegacyLocalPasswordVault();
+    const vaultPurged = globalThis.localStorage.getItem('nexora_auth_vault_users_v1') === null;
 
-    const testUser = {
-      id: generateOperativeUID(),
-      username: 'sec_operative',
-      displayName: 'Security Operative',
-      email: 'sec_operative@nexora.net',
-      passHash: hash,
-      tag: '#9999',
-      avatar: '',
-      bannerColor: '',
-      status: 'online' as const,
-      customStatus: '',
-      bio: '',
-      joinedAt: 'Nov 2026',
-      role: 'member' as const
-    };
-    saveVaultAccount({ user: testUser, passwordHash: hash });
+    // Test B: Verify Firebase Authentication is authoritative in NexoraContext
+    const contextContent = fs.readFileSync(path.resolve('src/context/NexoraContext.tsx'), 'utf8');
+    const authAuthoritative = contextContent.includes('signInWithEmailAndPassword(auth, targetEmail, password)') &&
+      contextContent.includes('createUserWithEmailAndPassword(auth, cleanEmail, password)') &&
+      contextContent.includes('sendPasswordResetEmail(auth, cleanEmail)') &&
+      !contextContent.includes('saveVaultAccount({ user: newProfile, passwordHash: passHash })');
 
-    const authValid = await verifyVaultCredentials('sec_operative', pass);
-    const authInvalid = await verifyVaultCredentials('sec_operative', 'WrongPassword123');
+    // Test C: Verify AuthScreen has no simulated unverified Google dialog accounts
+    const authScreenContent = fs.readFileSync(path.resolve('src/components/auth/AuthScreen.tsx'), 'utf8');
+    const noFakeGoogle = !authScreenContent.includes('arulgamingyt@gmail.com') &&
+      !authScreenContent.includes('cypher.prime@gmail.com') &&
+      !authScreenContent.includes('showGoogleModal');
 
-    const pass1 = isHashed && hasSalt && !!authValid && authInvalid === null;
+    const pass1 = vaultPurged && authAuthoritative && noFakeGoogle;
     recordAudit(
       1,
       'AUTHENTICATION',
-      'Cryptographic Key Hashing & Salt Verification',
+      'Authoritative Authentication & Password Vault Purge',
       pass1,
-      'Credential theft & plaintext password storage vulnerabilities',
-      'Passwords hashed via salted SHA-256 Web Crypto API. Plaintext never persisted; wrong passwords strictly rejected.'
+      'Client-side password hashing, credential leakage in localStorage, and identity spoofing',
+      'Client-side password hashing removed; legacy localStorage vault purged; Firebase Auth enforced as sole production authority.'
     );
   } catch (err: any) {
-    recordAudit(1, 'AUTHENTICATION', 'Password Hashing', false, 'Credential theft', err.message);
+    recordAudit(1, 'AUTHENTICATION', 'Authentication Authority', false, 'Credential security', err.message);
   }
 
-  // 2. Privilege Escalation Defense (RBAC)
+  // 2. Privilege Escalation Defense (RBAC & Firestore Rules)
   try {
+    const rulesPath = path.resolve('firestore.rules');
+    const rules = fs.readFileSync(rulesPath, 'utf8');
+
+    // Rule check A: Self-registration prohibits role: admin or platformRole: admin
+    const createRoleBlocked = rules.includes("(!('role' in request.resource.data) || request.resource.data.role == 'member')") &&
+      rules.includes("(!('platformRole' in request.resource.data) || request.resource.data.platformRole == 'none')");
+
+    // Rule check B: Self-update prohibits modifying platformRole or role
+    const updateRoleBlocked = rules.includes("(!('platformRole' in request.resource.data) || request.resource.data.platformRole == resource.data.platformRole)") &&
+      rules.includes("(!('role' in request.resource.data) || request.resource.data.role == resource.data.role)");
+
+    // Rule check C: Platform admin does NOT trust user-writable role fields
+    const adminCheckUntrustedRoleBlocked = !rules.includes("get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'owner']");
+
+    // Rule check D: Legitimate platform admin authentication remains functional
+    const legitimateAdminIntact = rules.includes("request.auth.token.email == 'admin@nexora.io'") &&
+      rules.includes("request.auth.token.admin == true") &&
+      rules.includes("getPlatformRole() == 'admin'");
+
     type Role = 'owner' | 'admin' | 'moderator' | 'member';
     const roleHierarchy: Record<Role, number> = {
       owner: 4,
@@ -107,21 +119,20 @@ async function runSecurityAudit() {
     };
 
     // Attacks to simulate:
-    // Attack A: Member attempts to promote themselves or another member to Admin
-    const memberCanPromote = canModifyRole('member', 'admin'); // should be false
-    // Attack B: Admin attempts to demote or ban Community Owner
-    const adminCanDemoteOwner = canModifyRole('admin', 'owner'); // should be false
-    // Attack C: Moderator attempts to modify Admin settings
-    const modCanModifyAdmin = canModifyRole('moderator', 'admin'); // should be false
+    const memberCanPromote = canModifyRole('member', 'admin'); // false
+    const adminCanDemoteOwner = canModifyRole('admin', 'owner'); // false
+    const modCanModifyAdmin = canModifyRole('moderator', 'admin'); // false
 
-    const rbacSecure = !memberCanPromote && !adminCanDemoteOwner && !modCanModifyAdmin;
+    const rbacSecure = !memberCanPromote && !adminCanDemoteOwner && !modCanModifyAdmin &&
+      createRoleBlocked && updateRoleBlocked && adminCheckUntrustedRoleBlocked && legitimateAdminIntact;
+
     recordAudit(
       2,
       'AUTHORIZATION',
-      'RBAC Privilege Escalation Barrier',
+      'RBAC & Firestore Admin Privilege Escalation Defense',
       rbacSecure,
-      'Horizontal and vertical privilege escalation (Member -> Admin / Admin -> Owner takeover)',
-      'Strict hierarchical rank verification blocks unauthorized role modifications and owner unseating.'
+      'Vertical privilege escalation (Self-registration as admin, profile update to admin, role forgery)',
+      'Backend Firestore rules reject self-assigned admin roles, block platformRole forgery, and verify legitimate administrator access.'
     );
   } catch (err: any) {
     recordAudit(2, 'AUTHORIZATION', 'RBAC Barrier', false, 'Privilege escalation', err.message);
@@ -294,29 +305,53 @@ async function runSecurityAudit() {
     recordAudit(8, 'HYGIENE', 'Secret Hygiene', false, 'Secret leak', err.message);
   }
 
-  // 9. Community Channel Access Control (ACL)
+  // 9. Community Channel Access Control (ACL & Firestore Rules)
   try {
+    const rulesPath = path.resolve('firestore.rules');
+    const rules = fs.readFileSync(rulesPath, 'utf8');
+
+    // Rule check: Private channel reads require explicit community membership + moderator/allowedRoles
+    const channelReadGuarded = rules.includes('isExplicitCommunityMember(communityId)') &&
+      rules.includes('resource.data.isPrivate != true');
+
+    // Rule check: Messages in private channels cannot be read by public server non-members
+    const messageReadGuarded = rules.includes('get(/databases/$(database)/documents/communities/$(communityId)/channels/$(channelId)).data.isPrivate != true') &&
+      rules.includes('isExplicitCommunityMember(communityId)');
+
     const channelGeneral: { id: string; isPrivate: boolean; allowedRoles: string[] } = { id: 'chan_gen', isPrivate: false, allowedRoles: [] };
     const channelClassified: { id: string; isPrivate: boolean; allowedRoles: string[] } = { id: 'chan_class', isPrivate: true, allowedRoles: ['owner', 'admin'] };
 
-    const canAccess = (role: string, chan: { id: string; isPrivate: boolean; allowedRoles: string[] }): boolean => {
+    const canAccess = (role: string, isExplicitMember: boolean, chan: { id: string; isPrivate: boolean; allowedRoles: string[] }): boolean => {
       if (!chan.isPrivate) return true;
+      if (!isExplicitMember) return false;
       if (role === 'owner') return true;
       return chan.allowedRoles.includes(role);
     };
 
-    const memberCanAccessGeneral = canAccess('member', channelGeneral); // true
-    const memberCanAccessClassified = canAccess('member', channelClassified); // false
-    const adminCanAccessClassified = canAccess('admin', channelClassified); // true
+    // Scenarios:
+    // 1. Ordinary public server browser (not explicit member) attempts to read private channel -> Blocked!
+    const publicVisitorCanAccessPrivate = canAccess('none', false, channelClassified); // false
+    // 2. Explicit community member with role 'member' attempts to read admin-only private channel -> Blocked!
+    const regularMemberCanAccessPrivate = canAccess('member', true, channelClassified); // false
+    // 3. Explicit community member with role 'admin' attempts to read admin-only private channel -> Allowed!
+    const adminCanAccessPrivate = canAccess('admin', true, channelClassified); // true
+    // 4. Any user can access public general channel
+    const publicVisitorCanAccessGeneral = canAccess('none', false, channelGeneral); // true
 
-    const aclValid = memberCanAccessGeneral && !memberCanAccessClassified && adminCanAccessClassified;
+    const aclValid = !publicVisitorCanAccessPrivate &&
+      !regularMemberCanAccessPrivate &&
+      adminCanAccessPrivate &&
+      publicVisitorCanAccessGeneral &&
+      channelReadGuarded &&
+      messageReadGuarded;
+
     recordAudit(
       9,
       'ACCESS CONTROL',
-      'Private Channel ACL & Clearance Isolation',
+      'Private Channel ACL & Direct Firestore Security Rules',
       aclValid,
-      'Unauthorized viewing of sensitive or classified internal organization channels',
-      'Channel privacy flags and allowedRoles enforced before granting access to frequency feeds.'
+      'Unauthorized viewing of sensitive or classified internal organization channels via Firestore direct queries',
+      'Firestore rules strictly require explicit community membership + role clearance for private channels and their messages.'
     );
   } catch (err: any) {
     recordAudit(9, 'ACCESS CONTROL', 'Private Channel ACL', false, 'Access control bypass', err.message);

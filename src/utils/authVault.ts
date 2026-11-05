@@ -4,6 +4,18 @@ import { getRandomCyberAvatar } from './avatars';
 const VAULT_STORAGE_KEY = 'nexora_auth_vault_users_v1';
 const ACTIVE_SESSION_KEY = 'nexora_active_session_v1';
 
+/**
+ * Securely purges any legacy plaintext or SHA-256 password hashes stored in localStorage.
+ * Enforces Firebase Authentication as the authoritative authentication provider.
+ */
+export function purgeLegacyLocalPasswordVault(): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(VAULT_STORAGE_KEY);
+    }
+  } catch {}
+}
+
 export interface VaultAccount {
   user: User;
   passwordHash: string;
@@ -210,7 +222,13 @@ export async function resetVaultAccountPassword(
   email: string,
   newPassword?: string
 ): Promise<boolean> {
-  const account = findVaultAccountByEmail(email);
+  const cleanEmail = email.trim().toLowerCase();
+  // Production accounts must use Firebase Authentication sendPasswordResetEmail!
+  if (cleanEmail !== 'demo_operative@nexora.tech') {
+    return false;
+  }
+
+  const account = findVaultAccountByEmail(cleanEmail);
   if (!account) return false;
 
   const pass = newPassword || 'Nexora2026!';

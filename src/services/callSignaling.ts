@@ -305,6 +305,8 @@ export class CallSignalingService {
               if (!data.targetUserId || data.targetUserId === currentUserId) {
                 callback(data);
               }
+              // Ephemeral signaling cleanup to avoid storage accumulation
+              deleteDoc(change.doc.ref).catch(() => {});
             }
           }
         });

@@ -65,8 +65,10 @@ import {
   updateDoc,
   deleteDoc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
+  where,
   orderBy,
   limit,
   getDocFromServer,
@@ -85,6 +87,7 @@ import {
   setActiveVaultSession,
   resetVaultAccountPassword,
   getOrCreateDemoAccount,
+  purgeLegacyLocalPasswordVault,
 } from '../utils/authVault';
 import { webrtcVoiceService } from '../utils/webrtcVoice';
 import { callSignalingService } from '../services/callSignaling';
@@ -766,14 +769,15 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
-  // Configure browser local persistence
+  // Configure browser local persistence & purge legacy client-side password vault
   useEffect(() => {
+    purgeLegacyLocalPasswordVault();
     setPersistence(auth, browserLocalPersistence).catch((err) => {
       console.warn('Firebase Auth persistence setup note:', err);
     });
   }, []);
 
-  // Monitor Firebase Authentication State & Hydrate Firestore / Vault Profile
+  // Monitor Firebase Authentication State & Hydrate Firestore Profile
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
       setAuthUser(fbUser);
@@ -831,20 +835,19 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.warn('Error fetching user profile from Firestore:', err);
         }
       } else {
-        // Check for active local cryptographic vault session
+        // No authenticated Firebase session.
+        // Only allow active session if explicitly running as offline evaluation Demo Operative
         const activeVault = getActiveVaultSession();
         if (
           activeVault &&
-          (activeVault.email === 'google_operative@gmail.com' ||
-           activeVault.username === 'google_operative')
+          (activeVault.email === 'demo_operative@nexora.tech' ||
+           activeVault.id === 'nxr_demo_operative_01')
         ) {
-          setActiveVaultSession(null);
-          setVaultUser(null);
-        } else if (activeVault) {
           setVaultUser(activeVault);
           setCurrentUser(activeVault);
           setAllUsers((prev) => ({ ...prev, [activeVault.id]: activeVault }));
         } else {
+          setActiveVaultSession(null);
           setVaultUser(null);
         }
       }
@@ -3365,87 +3368,99 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  // AUTHENTICATION PROTOCOLS (Cloud Firebase Auth + Cryptographic Vault Fallback)
+  // AUTHENTICATION PROTOCOLS (Authoritative Firebase Cloud Authentication)
   const loginWithEmail = async (identifier: string, password: string) => {
     const cleanId = identifier.trim();
     if (!cleanId || !password) {
       throw new Error('Please enter both your electronic mail or callsign and security key.');
     }
 
-    // 1. Check local cryptographic vault first (handles email, username, and ID)
-    const verifiedVaultUser = await verifyVaultCredentials(cleanId, password);
-    if (verifiedVaultUser) {
-      const onlineProfile: User = { ...verifiedVaultUser, status: 'online' };
-      updateVaultUserProfile(onlineProfile.id, { status: 'online' });
-      setActiveVaultSession(onlineProfile);
-      setVaultUser(onlineProfile);
-      setCurrentUser(onlineProfile);
-      setAllUsers((prev) => ({ ...prev, [onlineProfile.id]: onlineProfile }));
-      showToast(`Welcome back, Operative ${onlineProfile.displayName}! Authenticated via Cryptographic Vault.`, 'success');
-      return;
-    }
-
-    // If identifier exists in vault but password didn't match:
-    if (findVaultAccount(cleanId)) {
-      throw new Error('Authentication rejected: Incorrect security key. Please check your password or use Reset.');
-    }
-
-    // 2. If it's an email address, try Firebase Cloud Auth
-    if (cleanId.includes('@')) {
-      try {
-        const userCredential = await signInWithEmailAndPassword(auth, cleanId, password);
-        const fbUser = userCredential.user;
-        setAuthUser(fbUser);
-        setVaultUser(null);
-
-        const userDocRef = doc(db, 'users', fbUser.uid);
-        const docSnap = await getDoc(userDocRef);
-        let profile: User;
-
-        if (docSnap.exists()) {
-          profile = docSnap.data() as User;
-          profile.status = 'online';
-          await updateDoc(userDocRef, {
-            status: 'online',
-            lastSeen: new Date().toISOString(),
-          }).catch(() => {});
-        } else {
-          const cleanUsername = (fbUser.displayName || fbUser.email?.split('@')[0] || 'operative')
-            .toLowerCase()
-            .replace(/[^a-z0-9_-]/g, '')
-            .slice(0, 20) || 'operative';
-          const tag = `#${Math.floor(1000 + Math.random() * 9000)}`;
-
-          profile = {
-            id: fbUser.uid,
-            username: cleanUsername,
-            displayName: fbUser.displayName || cleanUsername,
-            tag,
-            avatar: fbUser.photoURL || getRandomCyberAvatar(),
-            bannerColor: 'from-violet-800 via-purple-900 to-indigo-950',
-            status: 'online',
-            customStatus: 'Operative active in Nexora',
-            bio: 'Nexora operative. Transmitting without limits.',
-            email: fbUser.email || cleanId,
-            joinedAt: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-            role: 'member',
-          };
-          await setDoc(userDocRef, profile).catch(() => {});
-        }
-
-        setCurrentUser(profile);
-        setAllUsers((prev) => ({ ...prev, [profile.id]: profile }));
-        showToast(`Welcome back, Operative ${profile.displayName}! Connection re-established.`, 'success');
+    // 1. If explicit Demo Operative test account (evaluation only)
+    if (cleanId.toLowerCase() === 'demo_operative@nexora.tech' || cleanId.toLowerCase() === 'cypher_prime') {
+      const demo = await getOrCreateDemoAccount();
+      const demoHash = await hashSecurityKey('Nexora2026!');
+      const inputHash = await hashSecurityKey(password);
+      if (inputHash === demoHash) {
+        const onlineProfile: User = { ...demo, status: 'online' };
+        setActiveVaultSession(onlineProfile);
+        setVaultUser(onlineProfile);
+        setCurrentUser(onlineProfile);
+        setAllUsers((prev) => ({ ...prev, [onlineProfile.id]: onlineProfile }));
+        showToast(`Instant demo access granted. Welcome, Operative ${onlineProfile.displayName}!`, 'success');
         return;
-      } catch (firebaseErr: any) {
-        if (firebaseErr?.code === 'auth/wrong-password') {
-          throw new Error('Authentication rejected: Incorrect security key. Please check your password.');
-        }
-        throw new Error(`Operative account not found for "${cleanId}". Click below to register.`);
+      } else {
+        throw new Error('Authentication rejected: Incorrect security key for demo operative.');
       }
-    } else {
-      throw new Error(`Operative callsign "@${cleanId}" not found. Click below to register.`);
     }
+
+    // 2. Resolve target email (supports callsign @username or standard email address)
+    let targetEmail = cleanId;
+    if (!cleanId.includes('@')) {
+      const cleanUsername = cleanId.toLowerCase().replace(/^@/, '');
+      try {
+        const q = query(collection(db, 'users'), where('username', '==', cleanUsername));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          throw new Error(`Operative callsign "@${cleanUsername}" not found. Please register or verify your callsign.`);
+        }
+        const foundUser = snap.docs[0].data() as User;
+        if (!foundUser.email) {
+          throw new Error(`Operative callsign "@${cleanUsername}" has no linked email. Please sign in with your email address.`);
+        }
+        targetEmail = foundUser.email;
+      } catch (err: any) {
+        if (err.message && (err.message.includes('not found') || err.message.includes('linked email'))) {
+          throw err;
+        }
+        throw new Error(`Unable to resolve callsign "@${cleanUsername}". Please sign in with your email address.`);
+      }
+    }
+
+    // 3. Authenticate directly via Firebase Authentication (No silent suppression!)
+    const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password);
+    const fbUser = userCredential.user;
+    setAuthUser(fbUser);
+    setVaultUser(null);
+
+    const userDocRef = doc(db, 'users', fbUser.uid);
+    const docSnap = await getDoc(userDocRef);
+    let profile: User;
+
+    if (docSnap.exists()) {
+      profile = docSnap.data() as User;
+      profile.status = 'online';
+      await updateDoc(userDocRef, {
+        status: 'online',
+        lastSeen: new Date().toISOString(),
+      }).catch(() => {});
+    } else {
+      const cleanUsername = (fbUser.displayName || fbUser.email?.split('@')[0] || 'operative')
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]/g, '')
+        .slice(0, 20) || 'operative';
+      const tag = `#${Math.floor(1000 + Math.random() * 9000)}`;
+
+      profile = {
+        id: fbUser.uid,
+        username: cleanUsername,
+        displayName: fbUser.displayName || cleanUsername,
+        tag,
+        avatar: fbUser.photoURL || getRandomCyberAvatar(),
+        bannerColor: 'from-violet-800 via-purple-900 to-indigo-950',
+        status: 'online',
+        customStatus: 'Operative active in Nexora',
+        bio: 'Nexora operative. Transmitting without limits.',
+        email: fbUser.email || targetEmail,
+        joinedAt: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        role: 'member',
+        platformRole: 'none',
+      };
+      await setDoc(userDocRef, profile).catch(() => {});
+    }
+
+    setCurrentUser(profile);
+    setAllUsers((prev) => ({ ...prev, [profile.id]: profile }));
+    showToast(`Welcome back, Operative ${profile.displayName}! Connection verified.`, 'success');
   };
 
   const registerWithEmail = async (
@@ -3460,7 +3475,7 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'operative';
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Check duplicate account or application
+    // 1. Check duplicate account or application in beta access service
     if (betaAccessService.isDuplicateAccount(cleanEmail, cleanUsername)) {
       throw new Error('An account or beta application with this electronic mail address already exists. Please log in.');
     }
@@ -3469,12 +3484,19 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const tag = `#${Math.floor(1000 + Math.random() * 9000)}`;
     const finalDisplayName = (displayName && displayName.trim()) || username.trim();
 
+    // 2. Perform authentic Firebase User Registration — Never suppress failures!
+    const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+    const fbUser = userCredential.user;
+    setAuthUser(fbUser);
+    setVaultUser(null);
+
+    await updateProfile(fbUser, { displayName: finalDisplayName, photoURL: chosenAvatar }).catch(() => {});
+
     const isSystemAdminAccount = cleanEmail === 'admin@nexora.io';
     const initialBetaStatus: BetaAccessStatus = isSystemAdminAccount ? 'approved' : 'pending';
 
-    const uid = generateOperativeUID();
     const newProfile: User = {
-      id: uid,
+      id: fbUser.uid,
       username: cleanUsername,
       displayName: finalDisplayName,
       tag,
@@ -3485,20 +3507,20 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       bio: 'Nexora operative. Transmitting without limits.',
       email: cleanEmail,
       joinedAt: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-      role: isSystemAdminAccount ? 'admin' : 'member',
+      role: 'member', // Strictly member; role escalation is blocked
+      platformRole: 'none',
       acceptedLegalVersion: 'v1.0',
       acceptedLegalAt: new Date().toISOString(),
       betaStatus: initialBetaStatus,
     };
 
-    // Save in Vault so registration ALWAYS succeeds immediately!
-    const passHash = await hashSecurityKey(password);
-    saveVaultAccount({ user: newProfile, passwordHash: passHash });
+    // Save profile to Firestore
+    await setDoc(doc(db, 'users', fbUser.uid), newProfile);
 
     // Submit Beta Application to access registry
     try {
       await betaAccessService.submitApplication({
-        userId: newProfile.id,
+        userId: fbUser.uid,
         email: cleanEmail,
         displayName: finalDisplayName,
         username: cleanUsername,
@@ -3509,22 +3531,6 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn('[BetaRegistration] Application submit notice:', appErr);
     }
 
-    // Also attempt Firebase registration in the background if possible
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
-      const fbUser = userCredential.user;
-      setAuthUser(fbUser);
-      newProfile.id = fbUser.uid;
-      await updateProfile(fbUser, { displayName: finalDisplayName, photoURL: chosenAvatar }).catch(() => {});
-      await setDoc(doc(db, 'users', fbUser.uid), newProfile).catch(() => {});
-    } catch (firebaseErr: any) {
-      if (firebaseErr?.code === 'auth/email-already-in-use') {
-        throw new Error('This electronic mail address is already registered in NEXORA Authentication. Please log in.');
-      }
-    }
-
-    setActiveVaultSession(newProfile);
-    setVaultUser(newProfile);
     setCurrentUser(newProfile);
     setAllUsers((prev) => ({ ...prev, [newProfile.id]: newProfile }));
 

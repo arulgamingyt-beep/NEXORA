@@ -78,7 +78,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       return 'Google OAuth Notice: This domain (localhost) is pending authorization in Firebase Console (Authentication > Settings > Authorized domains). Please register or sign in with your Callsign/Email, or use 1-Click Instant Demo.';
     }
     if (raw.includes('operation-not-allowed')) {
-      return 'Firebase Email/Password provider is disabled in Firebase Console. Local Cryptographic Vault active. Please use the Register tab to create your operative callsign.';
+      return 'Firebase Email/Password authentication is not enabled in Firebase Console. Please enable Email/Password under Authentication > Sign-in method.';
     }
     if (raw.includes('email-already-in-use')) {
       return 'This electronic mail address is already registered. Please sign in or use the password recovery protocol.';
@@ -219,7 +219,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     try {
       await resetPassword(emailOrPhone.trim());
       setResetSuccessMessage(
-        `Security key recovery instructions dispatched to ${emailOrPhone.trim()}. Check your inbox or default key Nexora2026!`
+        `Security key recovery instructions dispatched to ${emailOrPhone.trim()}. Please check your email inbox and follow the secure link.`
       );
     } catch (err: any) {
       setErrorMessage(parseCleanError(err));

@@ -44,6 +44,41 @@ export const GOOGLE_STUN_CONFIG: RTCConfiguration = {
   iceCandidatePoolSize: 10,
 };
 
+/**
+ * Returns RTCConfiguration with standard Google STUN servers and optional
+ * dynamically configured TURN servers read securely from Vite environment variables
+ * (e.g. VITE_TURN_URLS, VITE_TURN_USERNAME, VITE_TURN_CREDENTIAL).
+ * Zero private credentials are hardcoded into the source code.
+ */
+export function getIceConfiguration(): RTCConfiguration {
+  const iceServers: RTCIceServer[] = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+  ];
+
+  try {
+    const turnUrls = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TURN_URLS) || '';
+    const turnUsername = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TURN_USERNAME) || '';
+    const turnCredential = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TURN_CREDENTIAL) || '';
+
+    if (turnUrls) {
+      const urlsArray = turnUrls.split(',').map((u: string) => u.trim()).filter(Boolean);
+      if (urlsArray.length > 0) {
+        const turnServer: RTCIceServer = { urls: urlsArray };
+        if (turnUsername) turnServer.username = turnUsername;
+        if (turnCredential) turnServer.credential = turnCredential;
+        iceServers.push(turnServer);
+      }
+    }
+  } catch {}
+
+  return {
+    iceServers,
+    iceCandidatePoolSize: 10,
+  };
+}
+
 export class WebRTCVoiceEngine {
   private channelId: string | null = null;
   private currentUserId: string | null = null;
@@ -592,7 +627,7 @@ export class WebRTCVoiceEngine {
    * Creates an RTCPeerConnection with Google STUN configuration
    */
   public createPeerConnection(targetUserId: string): RTCPeerConnection {
-    const pc = new RTCPeerConnection(GOOGLE_STUN_CONFIG);
+    const pc = new RTCPeerConnection(getIceConfiguration());
 
     // Attach local stream tracks (Audio and Video)
     if (this.localStream) {
