@@ -292,157 +292,157 @@ export const ChatArea: React.FC = () => {
       </header>
 
       {/* Pinned Transmissions Flyout */}
-        {showPinnedDrawer && (
-          <div className="absolute right-4 top-16 w-80 max-h-96 bg-[#16182c] border border-violet-500/30 rounded-2xl shadow-2xl p-3 z-30 backdrop-blur-xl flex flex-col">
-            <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs font-bold text-amber-400 font-mono">
-              <div className="flex items-center gap-1.5">
-                <Pin className="w-3.5 h-3.5" />
-                <span>LOCKED TRANSMISSIONS ({pinnedMessages.length})</span>
-              </div>
-              <button onClick={() => setShowPinnedDrawer(false)} className="text-slate-400 hover:text-white">
-                <X className="w-3.5 h-3.5" />
-              </button>
+      {showPinnedDrawer && (
+        <div className="absolute right-4 top-16 w-80 max-h-96 bg-[#16182c] border border-violet-500/30 rounded-2xl shadow-2xl p-3 z-30 backdrop-blur-xl flex flex-col">
+          <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs font-bold text-amber-400 font-mono">
+            <div className="flex items-center gap-1.5">
+              <Pin className="w-3.5 h-3.5" />
+              <span>LOCKED TRANSMISSIONS ({pinnedMessages.length})</span>
             </div>
-
-            <div className="flex-1 overflow-y-auto mt-2 space-y-2 pr-1">
-              {pinnedMessages.length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-4">
-                  No locked transmissions on this frequency.
-                </p>
-              ) : (
-                pinnedMessages.map((m) => (
-                  <div
-                    key={m.id}
-                    className="p-2.5 bg-[#0e101f] rounded-xl border border-violet-500/10 text-xs space-y-1"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-violet-300">{m.authorName}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">{m.timestamp}</span>
-                    </div>
-                    <p className="text-slate-200 line-clamp-3">{m.content}</p>
-                  </div>
-                ))
-              )}
-            </div>
+            <button onClick={() => setShowPinnedDrawer(false)} className="text-slate-400 hover:text-white">
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-        )}
 
-        {/* Transmission Stream Feed or Locked Access Screen */}
-        {isChannelRestricted ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none bg-[#0a0b16]">
-            <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4 shadow-xl shadow-amber-500/10">
-              <Lock className="w-8 h-8" />
-            </div>
-            <h2 className="text-xl font-bold text-white mb-2">Restricted Transmission Channel</h2>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-md leading-relaxed mb-4">
-              You do not possess the required security clearance to access{' '}
-              <span className="text-violet-300 font-mono font-semibold">#{activeChannel?.name}</span>.
-              This frequency is restricted to authorized roles (Administrator / Owner).
-            </p>
-            <div className="px-3.5 py-1.5 rounded-xl bg-[#16182c] border border-amber-500/30 text-[11px] font-mono text-amber-300 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-              <span>ACCESS DENIED • INSUFFICIENT OPERATIVE ROLE</span>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5">
-              {/* Cyberpunk Frequency Welcome Banner */}
-              <div className="py-5 px-5 bg-gradient-to-r from-violet-950/40 via-purple-950/20 to-indigo-950/30 rounded-3xl border border-violet-500/25 mb-4 shadow-lg relative overflow-hidden">
-                <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-violet-600/10 rounded-full blur-2xl pointer-events-none" />
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 hex-clip bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-violet-600/40 overflow-hidden">
-                    {activeCommunity?.icon?.startsWith('data:') || activeCommunity?.icon?.startsWith('http') ? (
-                      <img src={activeCommunity.icon} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      activeCommunity ? activeCommunity.icon : '⚡'
-                    )}
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-violet-400 font-bold block">
-                      FREQUENCY INITIALIZED
-                    </span>
-                    <h2 className="text-base sm:text-lg font-extrabold text-white">
-                      {activeCommunity
-                        ? `#${activeChannel?.name}`
-                        : isGroupDM
-                        ? activeDM?.name
-                        : `@${otherDMUser?.displayName}`}
-                    </h2>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
-                  {activeCommunity
-                    ? `Transmitting on #${activeChannel?.name}. Real-time protocol active with cryptographic token verification.`
-                    : isGroupDM
-                    ? `Group encrypted frequency active. ${activeDM?.participants.length} operatives securely connected.`
-                    : `Encrypted point-to-point relay established with @${otherDMUser?.username}.`}
-                </p>
-              </div>
-
-              {searchInFrequency && (
-                <div className="px-3 py-1.5 bg-violet-600/20 border border-violet-500/30 rounded-xl text-xs text-violet-300 flex items-center justify-between font-mono">
-                  <span>Matching: {filteredMessages.length} transmissions for "{searchInFrequency}"</span>
-                  <button onClick={() => setSearchInFrequency('')} className="underline hover:text-white">
-                    Clear
-                  </button>
-                </div>
-              )}
-
-              {filteredMessages.length === 0 ? (
-                <div className="text-center py-8 text-xs text-slate-500 font-mono">
-                  NO TRANSMISSIONS LOGGED. TRANSMIT THE FIRST PACKET BELOW.
-                </div>
-              ) : (
-                filteredMessages.map((message) => (
-                  <MessageItem key={message.id} message={message} />
-                ))
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Typing Indicator */}
-            {activeTypingNames.length > 0 && (
-              <div className="px-4 py-1.5 flex items-center gap-2 text-xs text-violet-300 font-mono animate-pulse bg-[#0c0e1a]/80 border-t border-violet-500/10">
-                <span className="flex gap-1 items-center">
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce [animation-delay:0.15s]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce [animation-delay:0.3s]" />
-                </span>
-                <span>
-                  {activeTypingNames.join(', ')} {activeTypingNames.length > 1 ? 'are' : 'is'} transmitting...
-                </span>
-              </div>
-            )}
-
-            {/* Blocked Barrier or Transmission Composer */}
-            {isTargetBlocked ? (
-              <div className="p-4 mx-4 my-3 bg-rose-950/40 border border-rose-500/30 rounded-2xl flex items-center justify-between text-xs text-rose-300 shadow-lg">
-                <div className="flex items-center gap-2">
-                  <Ban className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span>You have blocked this operative. Unblock them to resume transmissions.</span>
-                </div>
-                <button
-                  onClick={() => unblockUser(otherDMUser!.id)}
-                  className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold cursor-pointer transition shadow-md"
+          <div className="flex-1 overflow-y-auto mt-2 space-y-2 pr-1">
+            {pinnedMessages.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-4">
+                No locked transmissions on this frequency.
+              </p>
+            ) : (
+              pinnedMessages.map((m) => (
+                <div
+                  key={m.id}
+                  className="p-2.5 bg-[#0e101f] rounded-xl border border-violet-500/10 text-xs space-y-1"
                 >
-                  Unblock
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-violet-300">{m.authorName}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{m.timestamp}</span>
+                  </div>
+                  <p className="text-slate-200 line-clamp-3">{m.content}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Transmission Stream Feed or Locked Access Screen */}
+      {isChannelRestricted ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none bg-[#0a0b16]">
+          <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4 shadow-xl shadow-amber-500/10">
+            <Lock className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">Restricted Transmission Channel</h2>
+          <p className="text-xs sm:text-sm text-slate-400 max-w-md leading-relaxed mb-4">
+            You do not possess the required security clearance to access{' '}
+            <span className="text-violet-300 font-mono font-semibold">#{activeChannel?.name}</span>.
+            This frequency is restricted to authorized roles (Administrator / Owner).
+          </p>
+          <div className="px-3.5 py-1.5 rounded-xl bg-[#16182c] border border-amber-500/30 text-[11px] font-mono text-amber-300 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+            <span>ACCESS DENIED • INSUFFICIENT OPERATIVE ROLE</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5">
+            {/* Cyberpunk Frequency Welcome Banner */}
+            <div className="py-5 px-5 bg-gradient-to-r from-violet-950/40 via-purple-950/20 to-indigo-950/30 rounded-3xl border border-violet-500/25 mb-4 shadow-lg relative overflow-hidden">
+              <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-violet-600/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 hex-clip bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-violet-600/40 overflow-hidden">
+                  {activeCommunity?.icon?.startsWith('data:') || activeCommunity?.icon?.startsWith('http') ? (
+                    <img src={activeCommunity.icon} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    activeCommunity ? activeCommunity.icon : '⚡'
+                  )}
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-violet-400 font-bold block">
+                    FREQUENCY INITIALIZED
+                  </span>
+                  <h2 className="text-base sm:text-lg font-extrabold text-white">
+                    {activeCommunity
+                      ? `#${activeChannel?.name}`
+                      : isGroupDM
+                      ? activeDM?.name
+                      : `@${otherDMUser?.displayName}`}
+                  </h2>
+                </div>
+              </div>
+              <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+                {activeCommunity
+                  ? `Transmitting on #${activeChannel?.name}. Real-time protocol active with cryptographic token verification.`
+                  : isGroupDM
+                  ? `Group encrypted frequency active. ${activeDM?.participants.length} operatives securely connected.`
+                  : `Encrypted point-to-point relay established with @${otherDMUser?.username}.`}
+              </p>
+            </div>
+
+            {searchInFrequency && (
+              <div className="px-3 py-1.5 bg-violet-600/20 border border-violet-500/30 rounded-xl text-xs text-violet-300 flex items-center justify-between font-mono">
+                <span>Matching: {filteredMessages.length} transmissions for "{searchInFrequency}"</span>
+                <button onClick={() => setSearchInFrequency('')} className="underline hover:text-white">
+                  Clear
                 </button>
               </div>
-            ) : (
-              <MessageComposer
-                placeholder={
-                  activeCommunity
-                    ? `Message #${activeChannel?.name || 'frequency'}...`
-                    : isGroupDM
-                    ? `Message ${activeDM?.name || 'group'}...`
-                    : `Message @${otherDMUser?.displayName || 'operative'}...`
-                }
-              />
             )}
-          </>
-        )}
+
+            {filteredMessages.length === 0 ? (
+              <div className="text-center py-8 text-xs text-slate-500 font-mono">
+                NO TRANSMISSIONS LOGGED. TRANSMIT THE FIRST PACKET BELOW.
+              </div>
+            ) : (
+              filteredMessages.map((message) => (
+                <MessageItem key={message.id} message={message} />
+              ))
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Typing Indicator */}
+          {activeTypingNames.length > 0 && (
+            <div className="px-4 py-1.5 flex items-center gap-2 text-xs text-violet-300 font-mono animate-pulse bg-[#0c0e1a]/80 border-t border-violet-500/10">
+              <span className="flex gap-1 items-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" />
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce [animation-delay:0.15s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce [animation-delay:0.3s]" />
+              </span>
+              <span>
+                {activeTypingNames.join(', ')} {activeTypingNames.length > 1 ? 'are' : 'is'} transmitting...
+              </span>
+            </div>
+          )}
+
+          {/* Blocked Barrier or Transmission Composer */}
+          {isTargetBlocked ? (
+            <div className="p-4 mx-4 my-3 bg-rose-950/40 border border-rose-500/30 rounded-2xl flex items-center justify-between text-xs text-rose-300 shadow-lg">
+              <div className="flex items-center gap-2">
+                <Ban className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>You have blocked this operative. Unblock them to resume transmissions.</span>
+              </div>
+              <button
+                onClick={() => unblockUser(otherDMUser!.id)}
+                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold cursor-pointer transition shadow-md"
+              >
+                Unblock
+              </button>
+            </div>
+          ) : (
+            <MessageComposer
+              placeholder={
+                activeCommunity
+                  ? `Message #${activeChannel?.name || 'frequency'}...`
+                  : isGroupDM
+                  ? `Message ${activeDM?.name || 'group'}...`
+                  : `Message @${otherDMUser?.displayName || 'operative'}...`
+              }
+            />
+          )}
+        </>
+      )}
     </div>
   );
 };

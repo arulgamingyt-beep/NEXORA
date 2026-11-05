@@ -653,3 +653,4 @@ export const FriendsHub: React.FC = () => {
     </div>
   );
 };
+
