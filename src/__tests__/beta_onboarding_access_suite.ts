@@ -317,6 +317,7 @@ async function runOnboardingSuite() {
   if (failCount > 0) {
     process.exit(1);
   }
+  process.exit(0);
 }
 
 runOnboardingSuite().catch((err) => {

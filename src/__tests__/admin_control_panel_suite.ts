@@ -453,6 +453,7 @@ async function runAdminControlPanelSuite() {
   if (failCount > 0) {
     process.exit(1);
   }
+  process.exit(0);
 }
 
 runAdminControlPanelSuite().catch((err) => {
