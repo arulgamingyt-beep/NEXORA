@@ -23,6 +23,8 @@ import {
   CallParticipant,
   BetaAccessStatus,
   PlatformRole,
+  ExecutiveCategory,
+  EXECUTIVE_ROLES,
   ReportTargetType,
   ModerationDecision,
   AdminAuditLog,
@@ -87,6 +89,7 @@ import {
   setActiveVaultSession,
   resetVaultAccountPassword,
   getOrCreateDemoAccount,
+  getOrCreateExecutiveAccount,
   purgeLegacyLocalPasswordVault,
 } from '../utils/authVault';
 import { webrtcVoiceService } from '../utils/webrtcVoice';
@@ -259,6 +262,10 @@ interface NexoraContextType {
   isSuperAdmin: boolean;
   isPlatformAdmin: boolean;
   isPlatformModerator: boolean;
+  executiveCategory: ExecutiveCategory | null;
+  executiveTitle: string | null;
+  isExecutive: boolean;
+  loginAsExecutive: (category: ExecutiveCategory, identifier?: string, password?: string) => Promise<void>;
   suspendUser: (targetUserId: string, reason: string) => Promise<{ success: boolean; message: string }>;
   reactivateUser: (targetUserId: string) => Promise<{ success: boolean; message: string }>;
   updateUserPlatformRole: (targetUserId: string, newRole: PlatformRole) => Promise<{ success: boolean; message: string }>;
@@ -402,7 +409,13 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     currentUser.betaStatus === 'approved' ||
     currentUser.role === 'admin' ||
     currentUser.role === 'owner' ||
+    Boolean(currentUser.executiveCategory) ||
+    currentUser.platformRole === 'super_admin' ||
+    currentUser.platformRole === 'admin' ||
     currentUser.email === 'admin@nexora.io' ||
+    currentUser.email === 'founder@nexora.io' ||
+    currentUser.email === 'ceo@nexora.io' ||
+    currentUser.email === 'md@nexora.io' ||
     (currentUser as any).isAdmin === true;
 
   const reviewBetaApplication = async (applicantId: string, status: 'approved' | 'rejected', notes?: string) => {
@@ -526,6 +539,21 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const isPlatformAdmin = platformRole === 'super_admin' || platformRole === 'admin';
   const isPlatformModerator =
     platformRole === 'super_admin' || platformRole === 'admin' || platformRole === 'moderator';
+
+  // Executive Leadership Clearance
+  const executiveCategory: ExecutiveCategory | null = adminService.getExecutiveCategory(currentUser);
+  const executiveTitle: string | null =
+    currentUser?.executiveTitle ||
+    (executiveCategory ? EXECUTIVE_ROLES[executiveCategory]?.title : null);
+  const isExecutive = Boolean(
+    executiveCategory ||
+    platformRole === 'super_admin' ||
+    platformRole === 'admin' ||
+    currentUser?.email === 'admin@nexora.io' ||
+    currentUser?.email === 'founder@nexora.io' ||
+    currentUser?.email === 'ceo@nexora.io' ||
+    currentUser?.email === 'md@nexora.io'
+  );
 
   const suspendUser = async (
     targetUserId: string,
@@ -3605,6 +3633,116 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     showToast(`Instant access granted. Welcome, Operative ${onlineProfile.displayName}!`, 'success');
   };
 
+  const loginAsExecutive = async (
+    category: ExecutiveCategory,
+    identifier?: string,
+    password?: string
+  ) => {
+    const roleInfo = EXECUTIVE_ROLES[category];
+    if (!roleInfo) {
+      throw new Error('Invalid executive category specified.');
+    }
+
+    // 1. If custom credentials entered with an email, try authenticating with Firebase Auth
+    if (identifier && identifier.trim() && password) {
+      const cleanId = identifier.trim();
+      if (cleanId.includes('@')) {
+        try {
+          const userCredential = await signInWithEmailAndPassword(auth, cleanId, password);
+          const uid = userCredential.user.uid;
+          const userDocRef = doc(db, 'users', uid);
+          const snap = await getDoc(userDocRef);
+          let profile: User;
+          if (snap.exists()) {
+            profile = {
+              ...(snap.data() as User),
+              id: uid,
+              executiveCategory: category,
+              executiveTitle: roleInfo.title,
+              platformRole: roleInfo.platformRole,
+              status: 'online',
+              betaStatus: 'approved',
+            };
+          } else {
+            profile = {
+              id: uid,
+              username: cleanId.split('@')[0],
+              displayName: `${roleInfo.title} (${cleanId.split('@')[0]})`,
+              tag: `#${Math.floor(1000 + Math.random() * 9000)}`,
+              avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanId}`,
+              status: 'online',
+              email: cleanId,
+              joinedAt: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+              role: roleInfo.platformRole === 'super_admin' ? 'owner' : 'admin',
+              platformRole: roleInfo.platformRole,
+              executiveCategory: category,
+              executiveTitle: roleInfo.title,
+              betaStatus: 'approved',
+            };
+          }
+          await setDoc(userDocRef, profile, { merge: true }).catch(() => {});
+          setCurrentUser(profile);
+          setAllUsers((prev) => ({ ...prev, [profile.id]: profile }));
+          setActiveVaultSession(profile);
+          setVaultUser(profile);
+          showToast(`Clearance Verified: Authenticated as ${roleInfo.title}.`, 'success');
+          return;
+        } catch (fbErr: any) {
+          // If custom Firebase fails, check if user was trying preset credentials
+          const preset = await getOrCreateExecutiveAccount(category);
+          if (
+            cleanId.toLowerCase() !== (preset.email || '').toLowerCase() &&
+            cleanId.toLowerCase() !== (preset.username || '').toLowerCase()
+          ) {
+            throw fbErr;
+          }
+        }
+      }
+    }
+
+    // 2. Default/1-Click Evaluation Executive Sign-in
+    const execAccount = await getOrCreateExecutiveAccount(category);
+    const onlineProfile: User = {
+      ...execAccount,
+      status: 'online',
+      executiveCategory: category,
+      executiveTitle: roleInfo.title,
+      platformRole: roleInfo.platformRole,
+      betaStatus: 'approved',
+    };
+    updateVaultUserProfile(onlineProfile.id, { status: 'online' });
+    setActiveVaultSession(onlineProfile);
+    setVaultUser(onlineProfile);
+    setCurrentUser(onlineProfile);
+    setAllUsers((prev) => ({ ...prev, [onlineProfile.id]: onlineProfile }));
+
+    // Sync to Cloud Firestore if connected
+    try {
+      await setDoc(doc(db, 'users', onlineProfile.id), onlineProfile, { merge: true });
+    } catch {}
+
+    // Record audit event for executive clearance entrance
+    try {
+      await adminService.recordAuditLog({
+        adminId: onlineProfile.id,
+        adminName: onlineProfile.displayName,
+        adminRole: roleInfo.platformRole,
+        executiveCategory: category,
+        executiveTitle: roleInfo.title,
+        action: 'EXECUTIVE_COMMAND_LOGIN',
+        targetType: 'system',
+        targetId: onlineProfile.id,
+        targetName: onlineProfile.displayName,
+        details: `${roleInfo.title} established executive session via Executive Command Gateway.`,
+      });
+    } catch {}
+
+    showToast(
+      `Executive Clearance Verified: Welcome, ${onlineProfile.displayName} (${roleInfo.title})!`,
+      'success'
+    );
+  };
+
   const logout = async () => {
     if (currentUser?.id) {
       updateVaultUserProfile(currentUser.id, { status: 'offline' });
@@ -3900,6 +4038,10 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isSuperAdmin,
         isPlatformAdmin,
         isPlatformModerator,
+        executiveCategory,
+        executiveTitle,
+        isExecutive,
+        loginAsExecutive,
         suspendUser,
         reactivateUser,
         updateUserPlatformRole,

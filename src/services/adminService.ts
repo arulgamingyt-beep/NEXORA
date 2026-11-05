@@ -18,6 +18,8 @@ import {
   Community,
   Message,
   PlatformRole,
+  ExecutiveCategory,
+  EXECUTIVE_ROLES,
   PlatformReport,
   ReportStatus,
   ReportTargetType,
@@ -87,10 +89,28 @@ export class AdminService {
   }
 
   // ---------------------------------------------------------------------------
-  // 1. Role Hierarchy Verification
+  // 1. Role Hierarchy & Executive Clearance Verification
   // ---------------------------------------------------------------------------
+  public getExecutiveCategory(user: User | null | undefined): ExecutiveCategory | null {
+    if (!user) return null;
+    if (user.executiveCategory) return user.executiveCategory;
+    if (user.email === 'founder@nexora.io' || user.username === 'alex_vance' || user.id === 'user_alex') {
+      return 'founder';
+    }
+    if (user.email === 'ceo@nexora.io' || user.username === 'cypher_ceo') {
+      return 'ceo';
+    }
+    if (user.email === 'md@nexora.io' || user.username === 'vanguard_md') {
+      return 'managing_director';
+    }
+    return null;
+  }
+
   public getEffectiveRole(user: User | null | undefined): PlatformRole {
     if (!user) return 'none';
+    const exec = this.getExecutiveCategory(user);
+    if (exec === 'founder') return 'super_admin';
+    if (exec === 'ceo' || exec === 'managing_director') return 'admin';
     if (user.platformRole) return user.platformRole;
     if (user.email === 'admin@nexora.io' || user.id === 'nxr_demo_operative_01' || user.id === 'user_alex') {
       return 'super_admin';
@@ -113,6 +133,27 @@ export class AdminService {
     };
     const userRole = this.getEffectiveRole(user);
     return roleRank[userRole] >= roleRank[minimumRole];
+  }
+
+  /**
+   * Only Chairman & Founder has absolute platform sovereignty (approve/demote executives, purge root)
+   */
+  public canApproveEverything(user: User): boolean {
+    const exec = this.getExecutiveCategory(user);
+    return exec === 'founder' || this.getEffectiveRole(user) === 'super_admin';
+  }
+
+  /**
+   * Exclusive Executive Approval Gateway:
+   * Only Chairman and Founder, CEO, and Managing Director can approve platform beta candidates & official verifications.
+   */
+  public canApprove(user: User): boolean {
+    const exec = this.getExecutiveCategory(user);
+    if (exec === 'founder' || exec === 'ceo' || exec === 'managing_director') {
+      return true;
+    }
+    const role = this.getEffectiveRole(user);
+    return role === 'super_admin' || role === 'admin';
   }
 
   // ---------------------------------------------------------------------------

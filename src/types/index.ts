@@ -2,6 +2,83 @@ export type UserRole = 'owner' | 'admin' | 'moderator' | 'member';
 
 export type PlatformRole = 'super_admin' | 'admin' | 'moderator' | 'none';
 
+export type ExecutiveCategory = 'founder' | 'ceo' | 'managing_director';
+
+export interface ExecutiveRoleInfo {
+  category: ExecutiveCategory;
+  title: string;
+  badge: string;
+  scope: string;
+  rank: number; // 3 = Chairman & Founder, 2 = CEO, 1 = Managing Director
+  platformRole: PlatformRole;
+  description: string;
+  approvalPrivileges: string[];
+  accentColor: string;
+  borderColor: string;
+  bgGlow: string;
+}
+
+export const EXECUTIVE_ROLES: Record<ExecutiveCategory, ExecutiveRoleInfo> = {
+  founder: {
+    category: 'founder',
+    title: 'Chairman and Founder',
+    badge: '👑 Chairman & Founder',
+    scope: 'Full Access (Platform Sovereign)',
+    rank: 3,
+    platformRole: 'super_admin',
+    description: 'Supreme executive clearance with unrestricted platform sovereignty. Holds exclusive authority to appoint/demote executives, sanction communities, configure security architecture, and approve all platform beta requests.',
+    approvalPrivileges: [
+      'Approve & revoke all platform beta access applications',
+      'Appoint or reassign CEO and Managing Director credentials',
+      'Assign & revoke Super Admin & Admin platform roles',
+      'Sanction, lock, or permanently purge communities',
+      'Manage legal compliance, terms, and privacy protocols',
+      'Unrestricted access to immutable security audit logs',
+    ],
+    accentColor: '#f59e0b',
+    borderColor: 'border-amber-500/50',
+    bgGlow: 'bg-amber-500/10',
+  },
+  ceo: {
+    category: 'ceo',
+    title: 'CEO',
+    badge: '💼 Chief Executive Officer',
+    scope: 'Executive Access (Strategic Operations)',
+    rank: 2,
+    platformRole: 'admin',
+    description: 'Chief Executive Officer directing platform operations, strategic partnerships, and community verification. Holds full approval authority over beta candidates and platform policy enforcement.',
+    approvalPrivileges: [
+      'Approve & review platform beta access candidates',
+      'Approve verified community partner badges',
+      'Execute account suspensions & emergency actions',
+      'Inspect comprehensive platform health metrics',
+      'Review executive audit trails & incident reports',
+    ],
+    accentColor: '#a855f7',
+    borderColor: 'border-violet-500/50',
+    bgGlow: 'bg-violet-500/10',
+  },
+  managing_director: {
+    category: 'managing_director',
+    title: 'Managing Director',
+    badge: '🏛️ Managing Director',
+    scope: 'Operational Access (Community & Moderation)',
+    rank: 1,
+    platformRole: 'admin',
+    description: 'Managing Director directing community moderation, user safety, and beta onboarding. Holds direct authority to approve beta applications and adjudicate moderation appeals.',
+    approvalPrivileges: [
+      'Approve & onboard platform beta candidates',
+      'Adjudicate user safety reports & abuse escalations',
+      'Manage community warnings & suspension appeals',
+      'Supervise operational moderation queue',
+      'Contribute to executive audit ledger',
+    ],
+    accentColor: '#06b6d4',
+    borderColor: 'border-cyan-500/50',
+    bgGlow: 'bg-cyan-500/10',
+  },
+};
+
 export type UserStatus = 'online' | 'idle' | 'dnd' | 'offline';
 
 export type BetaAccessStatus = 'pending' | 'approved' | 'rejected';
@@ -23,6 +100,8 @@ export interface User {
   joinedAt: string;
   role?: UserRole; // within current community
   platformRole?: PlatformRole;
+  executiveCategory?: ExecutiveCategory;
+  executiveTitle?: string;
   isSuspended?: boolean;
   suspendedReason?: string;
   suspendedAt?: string;
@@ -296,6 +375,9 @@ export interface BetaApplication {
   appliedAt: string;
   reviewedAt?: string;
   reviewedBy?: string;
+  reviewedByName?: string;
+  reviewedByTitle?: string;
+  reviewedByCategory?: ExecutiveCategory;
   experience?: string;
   devices?: string[];
   adminNotes?: string;
@@ -333,6 +415,8 @@ export interface AdminAuditLog {
   adminId: string;
   adminName: string;
   adminRole: PlatformRole;
+  executiveCategory?: ExecutiveCategory;
+  executiveTitle?: string;
   action: string;
   targetType: 'user' | 'community' | 'report' | 'beta_application' | 'system';
   targetId: string;

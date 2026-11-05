@@ -24,6 +24,7 @@
     "test:legal": "tsx src/__tests__/legal_documentation_test_suite.ts",
     "test:onboarding": "tsx src/__tests__/beta_onboarding_access_suite.ts",
     "test:admin": "tsx src/__tests__/admin_control_panel_suite.ts",
+    "test:executive": "tsx src/__tests__/executive_leadership_hierarchy_suite.ts",
     "test:notifications": "tsx src/__tests__/notification_activity_test_suite.ts",
     "test:search": "tsx src/__tests__/search_discovery_test_suite.ts",
     "test:discovery": "tsx src/__tests__/community_discovery_test_suite.ts",

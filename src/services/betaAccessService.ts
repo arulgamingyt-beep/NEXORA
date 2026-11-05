@@ -12,7 +12,7 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { BetaApplication, BetaAccessStatus, User } from '../types';
+import { BetaApplication, BetaAccessStatus, User, ExecutiveCategory } from '../types';
 import { getAllVaultAccounts, updateVaultUserProfile, findVaultAccount } from '../utils/authVault';
 
 const LOCAL_STORAGE_KEY = 'nexora_beta_applications_v1';
@@ -243,16 +243,33 @@ export class BetaAccessService {
   }
 
   /**
+   * Check if a user possesses executive clearance to review and approve applications
+   */
+  public hasExecutiveApprovalAuthority(user: User): boolean {
+    if (!user) return false;
+    return (
+      user.executiveCategory === 'founder' ||
+      user.executiveCategory === 'ceo' ||
+      user.executiveCategory === 'managing_director' ||
+      user.platformRole === 'super_admin' ||
+      user.platformRole === 'admin' ||
+      user.role === 'admin' ||
+      user.role === 'owner' ||
+      user.email === 'admin@nexora.io' ||
+      user.email === 'founder@nexora.io' ||
+      user.email === 'ceo@nexora.io' ||
+      user.email === 'md@nexora.io'
+    );
+  }
+
+  /**
    * List all beta applications (Administrator clearance verified)
    */
   public async listAllApplications(adminUser: User): Promise<BetaApplication[]> {
-    const isAdmin =
-      adminUser.role === 'admin' ||
-      adminUser.role === 'owner' ||
-      adminUser.email === 'admin@nexora.io';
+    const isAdmin = this.hasExecutiveApprovalAuthority(adminUser);
 
     if (!isAdmin) {
-      throw new Error('Access Denied: Security clearance restriction. Administrator authority required.');
+      throw new Error('Access Denied: Security clearance restriction. Executive Administrator authority required.');
     }
 
     try {
@@ -276,10 +293,7 @@ export class BetaAccessService {
     adminUser: User,
     callback: (apps: BetaApplication[]) => void
   ): () => void {
-    const isAdmin =
-      adminUser.role === 'admin' ||
-      adminUser.role === 'owner' ||
-      adminUser.email === 'admin@nexora.io';
+    const isAdmin = this.hasExecutiveApprovalAuthority(adminUser);
 
     if (!isAdmin) {
       callback([]);
@@ -339,7 +353,8 @@ export class BetaAccessService {
   }
 
   /**
-   * Review application: Approve or Reject (Administrator Only)
+   * Review application: Approve or Reject (Exclusive Executive Authority)
+   * Only Chairman & Founder, CEO, and Managing Director can approve or reject beta applicants.
    */
   public async reviewApplication(
     adminUser: User,
@@ -347,13 +362,12 @@ export class BetaAccessService {
     newStatus: 'approved' | 'rejected',
     notes?: string
   ): Promise<BetaApplication> {
-    const isAdmin =
-      adminUser.role === 'admin' ||
-      adminUser.role === 'owner' ||
-      adminUser.email === 'admin@nexora.io';
+    const isAuthorized = this.hasExecutiveApprovalAuthority(adminUser);
 
-    if (!isAdmin) {
-      throw new Error('Access Denied: Only authorized administrators can approve or reject beta applicants.');
+    if (!isAuthorized) {
+      throw new Error(
+        'Access Denied: Exclusive Executive Authority required. Only Chairman and Founder, CEO, and Managing Director can approve or reject beta applicants.'
+      );
     }
 
     let existing = this.localCache.get(applicantId);
@@ -365,11 +379,28 @@ export class BetaAccessService {
       existing = fromCloud;
     }
 
+    const executiveTitle =
+      adminUser.executiveTitle ||
+      (adminUser.executiveCategory === 'founder'
+        ? 'Chairman and Founder'
+        : adminUser.executiveCategory === 'ceo'
+        ? 'CEO'
+        : adminUser.executiveCategory === 'managing_director'
+        ? 'Managing Director'
+        : adminUser.platformRole === 'super_admin'
+        ? 'Chairman and Founder'
+        : 'Executive Administrator');
+
     const updated: BetaApplication = {
       ...existing,
       status: newStatus,
       reviewedAt: new Date().toISOString(),
       reviewedBy: adminUser.id,
+      reviewedByName: adminUser.displayName || adminUser.username,
+      reviewedByTitle: executiveTitle,
+      reviewedByCategory:
+        adminUser.executiveCategory ||
+        (adminUser.platformRole === 'super_admin' ? 'founder' : 'ceo'),
       adminNotes: notes !== undefined ? notes : existing.adminNotes,
     };
 
@@ -386,6 +417,9 @@ export class BetaAccessService {
         status: newStatus,
         reviewedAt: updated.reviewedAt,
         reviewedBy: updated.reviewedBy,
+        reviewedByName: updated.reviewedByName,
+        reviewedByTitle: updated.reviewedByTitle,
+        reviewedByCategory: updated.reviewedByCategory,
         adminNotes: updated.adminNotes || '',
       });
       // Also update user profile in Firestore

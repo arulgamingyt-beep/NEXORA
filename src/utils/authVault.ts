@@ -1,4 +1,4 @@
-import { User } from '../types';
+import { User, ExecutiveCategory } from '../types';
 import { getRandomCyberAvatar } from './avatars';
 
 const VAULT_STORAGE_KEY = 'nexora_auth_vault_users_v1';
@@ -262,6 +262,106 @@ export async function getOrCreateDemoAccount(): Promise<User> {
     };
     const passwordHash = await hashSecurityKey('Nexora2026!');
     account = { user: demoUser, passwordHash };
+    saveVaultAccount(account);
+  }
+  return account.user;
+}
+
+/**
+ * Prepares or retrieves a designated Executive leadership account for one-click testing:
+ * 1. Chairman and Founder (Full Access / Platform Sovereign)
+ * 2. CEO (Executive Strategic Access)
+ * 3. Managing Director (Operational Community Access)
+ */
+export async function getOrCreateExecutiveAccount(category: ExecutiveCategory): Promise<User> {
+  const configs: Record<ExecutiveCategory, {
+    id: string;
+    email: string;
+    username: string;
+    displayName: string;
+    tag: string;
+    avatar: string;
+    bannerColor: string;
+    customStatus: string;
+    bio: string;
+    role: 'owner' | 'admin';
+    platformRole: 'super_admin' | 'admin';
+    executiveTitle: string;
+  }> = {
+    founder: {
+      id: 'nxr_founder_01',
+      email: 'founder@nexora.io',
+      username: 'alex_vance',
+      displayName: 'Alex Vance',
+      tag: '#0001',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=256&h=256&fit=crop&crop=faces',
+      bannerColor: 'from-amber-600 via-yellow-700 to-stone-900',
+      customStatus: '👑 Chairman and Founder • Full Sovereignty',
+      bio: 'Chairman & Founder of NEXORA TECHNOLOGIES. Sovereign authority across all communication networks, security subsystems, and executive clearance levels.',
+      role: 'owner',
+      platformRole: 'super_admin',
+      executiveTitle: 'Chairman and Founder',
+    },
+    ceo: {
+      id: 'nxr_ceo_02',
+      email: 'ceo@nexora.io',
+      username: 'cypher_ceo',
+      displayName: 'Elena Rostova',
+      tag: '#0002',
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=256&h=256&fit=crop&crop=faces',
+      bannerColor: 'from-purple-700 via-violet-800 to-indigo-950',
+      customStatus: '💼 CEO • Strategic Operations',
+      bio: 'Chief Executive Officer directing global expansion, strategic infrastructure, verified community governance, and beta approvals for NEXORA.',
+      role: 'admin',
+      platformRole: 'admin',
+      executiveTitle: 'CEO',
+    },
+    managing_director: {
+      id: 'nxr_md_03',
+      email: 'md@nexora.io',
+      username: 'vanguard_md',
+      displayName: 'Marcus Kane',
+      tag: '#0003',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=256&h=256&fit=crop&crop=faces',
+      bannerColor: 'from-cyan-700 via-teal-800 to-slate-900',
+      customStatus: '🏛️ Managing Director • Community & Safety',
+      bio: 'Managing Director supervising platform safety, community standards, beta onboarding, and dispute moderation for NEXORA.',
+      role: 'admin',
+      platformRole: 'admin',
+      executiveTitle: 'Managing Director',
+    },
+  };
+
+  const cfg = configs[category];
+  let account = findVaultAccountByEmail(cfg.email);
+  if (!account) {
+    const execUser: User = {
+      id: cfg.id,
+      username: cfg.username,
+      displayName: cfg.displayName,
+      tag: cfg.tag,
+      avatar: cfg.avatar,
+      bannerColor: cfg.bannerColor,
+      status: 'online',
+      customStatus: cfg.customStatus,
+      bio: cfg.bio,
+      email: cfg.email,
+      joinedAt: 'Nov 2026',
+      role: cfg.role,
+      platformRole: cfg.platformRole,
+      executiveCategory: category,
+      executiveTitle: cfg.executiveTitle,
+      betaStatus: 'approved',
+    };
+    const passwordHash = await hashSecurityKey('NexoraExecutive2026!');
+    account = { user: execUser, passwordHash };
+    saveVaultAccount(account);
+  } else {
+    // Ensure executiveCategory and executiveTitle are up to date
+    account.user.executiveCategory = category;
+    account.user.executiveTitle = cfg.executiveTitle;
+    account.user.platformRole = cfg.platformRole;
+    account.user.betaStatus = 'approved';
     saveVaultAccount(account);
   }
   return account.user;

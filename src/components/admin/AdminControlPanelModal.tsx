@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNexora } from '../../context/NexoraContext';
 import {
   PlatformRole,
+  ExecutiveCategory,
+  EXECUTIVE_ROLES,
   PlatformReport,
   ReportStatus,
   ModerationDecision,
@@ -41,6 +43,9 @@ import {
   HelpCircle,
   AlertOctagon,
   Sparkles,
+  Crown,
+  Briefcase,
+  Building2,
 } from 'lucide-react';
 
 type AdminTab = 'overview' | 'users' | 'communities' | 'reports' | 'beta' | 'audit' | 'matrix';
@@ -278,21 +283,42 @@ export const AdminControlPanelModal: React.FC = () => {
           <div className="flex items-center gap-3">
             {/* Operator Clearance Badge */}
             <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-[#141628] border border-[#252945]">
-              <span className="text-[11px] font-mono text-slate-400">OPERATIVE:</span>
+              <span className="text-[11px] font-mono text-slate-400">CLEARANCE:</span>
               <span className="text-xs font-mono font-bold text-white">
                 @{currentUser.username}
               </span>
-              <span
-                className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded uppercase ${
-                  isSuperAdmin
-                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                    : isPlatformAdmin
-                    ? 'bg-violet-500/20 text-violet-300 border border-violet-500/40'
-                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                }`}
-              >
-                {platformRole.replace('_', ' ')}
-              </span>
+              {currentUser.executiveCategory ? (
+                <span
+                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full uppercase flex items-center gap-1 ${
+                    currentUser.executiveCategory === 'founder'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm shadow-amber-500/10'
+                      : currentUser.executiveCategory === 'ceo'
+                      ? 'bg-violet-500/20 text-violet-300 border border-violet-500/40 shadow-sm shadow-violet-500/10'
+                      : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm shadow-cyan-500/10'
+                  }`}
+                >
+                  {currentUser.executiveCategory === 'founder' ? (
+                    <Crown className="w-3 h-3 text-amber-400" />
+                  ) : currentUser.executiveCategory === 'ceo' ? (
+                    <Briefcase className="w-3 h-3 text-violet-400" />
+                  ) : (
+                    <Building2 className="w-3 h-3 text-cyan-400" />
+                  )}
+                  <span>{currentUser.executiveTitle || EXECUTIVE_ROLES[currentUser.executiveCategory].title}</span>
+                </span>
+              ) : (
+                <span
+                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded uppercase ${
+                    isSuperAdmin
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                      : isPlatformAdmin
+                      ? 'bg-violet-500/20 text-violet-300 border border-violet-500/40'
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  }`}
+                >
+                  {platformRole.replace('_', ' ')}
+                </span>
+              )}
             </div>
 
             <button
@@ -1052,6 +1078,22 @@ export const AdminControlPanelModal: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Exclusive Executive Approval Gate Notice */}
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-cyan-500/10 border border-amber-500/30 flex items-center justify-between text-xs font-mono">
+                  <div className="flex items-center gap-2.5">
+                    <Crown className="w-4 h-4 text-amber-400 shrink-0" />
+                    <div>
+                      <span className="text-white font-bold">Exclusive Executive Authority: </span>
+                      <span className="text-slate-300">
+                        Only Chairman &amp; Founder, CEO, and Managing Director can approve or reject beta applicants.
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase shrink-0">
+                    CLEARANCE ACTIVE
+                  </span>
+                </div>
+
                 <div className="rounded-2xl bg-[#0e101f] border border-[#1d2038] overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs font-mono">
@@ -1105,6 +1147,12 @@ export const AdminControlPanelModal: React.FC = () => {
                               >
                                 {b.status}
                               </span>
+                              {b.reviewedByTitle && (
+                                <div className="text-[9px] text-amber-300/90 font-mono mt-1 flex items-center gap-1">
+                                  <Crown className="w-2.5 h-2.5 text-amber-400" />
+                                  <span>{b.reviewedByTitle}</span>
+                                </div>
+                              )}
                             </td>
 
                             <td className="p-3 text-right">
@@ -1248,11 +1296,113 @@ export const AdminControlPanelModal: React.FC = () => {
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-bold text-white tracking-wide">
-                    Platform Authorization &amp; Clearance Matrix
+                    Platform Authorization &amp; Executive Clearance Matrix
                   </h3>
                   <p className="text-xs text-slate-400 font-mono">
-                    Official hierarchy governing NEXORA TECHNOLOGIES administrative privileges.
+                    Official hierarchy governing NEXORA TECHNOLOGIES executive approval powers and administrative privileges.
                   </p>
+                </div>
+
+                {/* 3 Executive Categories Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-amber-400" />
+                    <h4 className="text-xs font-mono uppercase tracking-wider text-amber-300 font-bold">
+                      Executive Leadership Hierarchy (Exclusive Approval Tiers)
+                    </h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Category 1: Chairman and Founder */}
+                    <div className="p-5 rounded-2xl bg-[#0e101f] border border-amber-500/40 space-y-3 shadow-lg shadow-amber-500/5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Crown className="w-5 h-5 text-amber-400" />
+                          <h4 className="font-bold text-white text-sm font-mono">Chairman &amp; Founder</h4>
+                        </div>
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase">
+                          Full Access
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 font-mono leading-relaxed">
+                        Platform Sovereign with unrestricted root authority. Exclusive power to appoint executives, approve all beta candidates, and enforce security policies.
+                      </p>
+                      <ul className="text-xs font-mono text-slate-300 space-y-1.5 pt-2 border-t border-[#1b1e36]">
+                        <li className="flex items-center gap-2 text-amber-300">
+                          <Check className="w-3.5 h-3.5" /> Approve &amp; revoke all beta applications
+                        </li>
+                        <li className="flex items-center gap-2 text-amber-300">
+                          <Check className="w-3.5 h-3.5" /> Appoint or demote CEO &amp; MD
+                        </li>
+                        <li className="flex items-center gap-2 text-amber-300">
+                          <Check className="w-3.5 h-3.5" /> Full root authority over communities
+                        </li>
+                        <li className="flex items-center gap-2 text-amber-300">
+                          <Check className="w-3.5 h-3.5" /> Unrestricted access to audit ledger
+                        </li>
+                      </ul>
+                    </div>
+
+                    {/* Category 2: CEO */}
+                    <div className="p-5 rounded-2xl bg-[#0e101f] border border-violet-500/40 space-y-3 shadow-lg shadow-violet-500/5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Briefcase className="w-5 h-5 text-violet-400" />
+                          <h4 className="font-bold text-white text-sm font-mono">CEO</h4>
+                        </div>
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30 uppercase">
+                          Strategic
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 font-mono leading-relaxed">
+                        Chief Executive Officer directing platform operations, strategic partnerships, beta approvals, and global infrastructure.
+                      </p>
+                      <ul className="text-xs font-mono text-slate-300 space-y-1.5 pt-2 border-t border-[#1b1e36]">
+                        <li className="flex items-center gap-2 text-violet-300">
+                          <Check className="w-3.5 h-3.5" /> Approve &amp; review beta access candidates
+                        </li>
+                        <li className="flex items-center gap-2 text-violet-300">
+                          <Check className="w-3.5 h-3.5" /> Certify verified partner communities
+                        </li>
+                        <li className="flex items-center gap-2 text-violet-300">
+                          <Check className="w-3.5 h-3.5" /> Direct platform operations &amp; suspensions
+                        </li>
+                        <li className="flex items-center gap-2 text-slate-500">
+                          <X className="w-3.5 h-3.5" /> Cannot demote Chairman &amp; Founder
+                        </li>
+                      </ul>
+                    </div>
+
+                    {/* Category 3: Managing Director */}
+                    <div className="p-5 rounded-2xl bg-[#0e101f] border border-cyan-500/40 space-y-3 shadow-lg shadow-cyan-500/5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-5 h-5 text-cyan-400" />
+                          <h4 className="font-bold text-white text-sm font-mono">Managing Director</h4>
+                        </div>
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 uppercase">
+                          Operational
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 font-mono leading-relaxed">
+                        Managing Director supervising platform safety, community standards, beta tester onboarding, and dispute moderation.
+                      </p>
+                      <ul className="text-xs font-mono text-slate-300 space-y-1.5 pt-2 border-t border-[#1b1e36]">
+                        <li className="flex items-center gap-2 text-cyan-300">
+                          <Check className="w-3.5 h-3.5" /> Approve &amp; onboard beta applicants
+                        </li>
+                        <li className="flex items-center gap-2 text-cyan-300">
+                          <Check className="w-3.5 h-3.5" /> Adjudicate moderation appeals &amp; reports
+                        </li>
+                        <li className="flex items-center gap-2 text-cyan-300">
+                          <Check className="w-3.5 h-3.5" /> Supervise community warnings &amp; strikes
+                        </li>
+                        <li className="flex items-center gap-2 text-slate-500">
+                          <X className="w-3.5 h-3.5" /> Cannot demote Chairman or CEO
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
