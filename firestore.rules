@@ -73,15 +73,16 @@ service cloud.firestore {
 
     // 0. Connection Test
     match /test/{docId} {
-      allow read: if true;
+      allow read: if isSignedIn();
     }
 
     // 1. Users Collection
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isUser(userId) && isValidId(userId) &&
-        // Self-registered users cannot grant themselves super_admin or admin roles!
+        // Self-registered users cannot grant themselves super_admin, admin, or elevated roles!
         (!('platformRole' in request.resource.data) || request.resource.data.platformRole in ['none', 'moderator']) &&
+        (!('role' in request.resource.data) || request.resource.data.role == 'member') &&
         (!('isSuspended' in request.resource.data) || request.resource.data.isSuspended == false);
 
       allow update: if isSignedIn() && isValidId(userId) && (
@@ -89,9 +90,10 @@ service cloud.firestore {
         isSuperAdmin() ||
         // Platform Admin can update non-platformRole fields (including suspension)
         (isPlatformAdmin() && (!('platformRole' in request.resource.data) || request.resource.data.platformRole == resource.data.platformRole)) ||
-        // Normal user self-update: strictly forbidden from altering platformRole or isSuspended!
+        // Normal user self-update: strictly forbidden from altering platformRole, role, or isSuspended!
         (isUser(userId) &&
          (!('platformRole' in request.resource.data) || request.resource.data.platformRole == resource.data.platformRole) &&
+         (!('role' in request.resource.data) || request.resource.data.role == resource.data.role) &&
          (!('isSuspended' in request.resource.data) || request.resource.data.isSuspended == resource.data.isSuspended))
       );
       allow delete: if isSuperAdmin();
@@ -135,17 +137,23 @@ service cloud.firestore {
 
       // 4. Community Channels Subcollection
       match /channels/{channelId} {
-        allow read: if isMemberOfCommunity(communityId);
+        allow read: if isMemberOfCommunity(communityId) && (
+          resource == null || resource.data.isPrivate != true || isCommunityModerator(communityId)
+        );
         allow create: if isCommunityModerator(communityId) && isValidId(channelId);
         allow update: if isCommunityModerator(communityId) && isValidId(channelId);
         allow delete: if isCommunityModerator(communityId) && isValidId(channelId);
 
         // 5. Messages Subcollection (Transmissions)
         match /messages/{messageId} {
-          allow read: if isMemberOfCommunity(communityId);
+          allow read: if isMemberOfCommunity(communityId) && (
+            get(/databases/$(database)/documents/communities/$(communityId)/channels/$(channelId)).data.isPrivate != true ||
+            isCommunityModerator(communityId)
+          );
 
           allow create: if isMemberOfCommunity(communityId) &&
             isValidId(messageId) &&
+            (get(/databases/$(database)/documents/communities/$(communityId)/channels/$(channelId)).data.isPrivate != true || isCommunityModerator(communityId)) &&
             request.resource.data.authorId == request.auth.uid &&
             request.resource.data.content is string &&
             request.resource.data.content.size() <= 4000;

@@ -11,6 +11,9 @@
  * - Hardware mute/camera/deafen track controls
  */
 
+import { db } from '../firebase';
+import { collection, addDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
+
 export interface VoicePeerUser {
   userId: string;
   displayName: string;
@@ -58,6 +61,7 @@ export class WebRTCVoiceEngine {
   private peerConnections: Map<string, RTCPeerConnection> = new Map();
   private activeUsers: Map<string, VoicePeerUser> = new Map();
   private broadcastChannel: BroadcastChannel | null = null;
+  private firestoreUnsub: (() => void) | null = null;
 
   public isMuted: boolean = false;
   public isDeafened: boolean = false;
@@ -426,9 +430,12 @@ export class WebRTCVoiceEngine {
   }
 
   /**
-   * Sets up signaling pipeline over BroadcastChannel and window storage events
+   * Sets up dual signaling pipeline:
+   * 1. Cloud Firestore realtime signaling documents for physical multi-device cross-network calling
+   * 2. BroadcastChannel + localStorage for local instant multi-tab simulation
    */
   private setupSignaling() {
+    // Layer 1: Local Tab-to-Tab loopback
     if (typeof BroadcastChannel !== 'undefined') {
       try {
         this.broadcastChannel = new BroadcastChannel(`nexora_voice_${this.channelId}`);
@@ -436,7 +443,7 @@ export class WebRTCVoiceEngine {
           this.handleSignalingPacket(event.data);
         };
       } catch (err) {
-        console.warn('[WebRTC] BroadcastChannel error:', err);
+        console.warn('[WebRTC] BroadcastChannel warning:', err);
       }
     }
 
@@ -450,12 +457,37 @@ export class WebRTCVoiceEngine {
         }
       });
     }
+
+    // Layer 2: Cloud Firestore Real-time Signaling for physical devices across the internet
+    try {
+      if (db && this.channelId) {
+        const cleanCallId = this.channelId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50);
+        const signalsRef = collection(db, 'calls', cleanCallId, 'signaling');
+        this.firestoreUnsub = onSnapshot(signalsRef, (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              const data = change.doc.data() as SignalingPacket;
+              if (data && data.fromUserId !== this.currentUserId) {
+                this.handleSignalingPacket(data);
+                // Ephemeral signal cleanup
+                deleteDoc(change.doc.ref).catch(() => {});
+              }
+            }
+          });
+        }, (err) => {
+          console.debug('[WebRTC] Firestore signaling standby:', err?.message);
+        });
+      }
+    } catch (err) {
+      console.debug('[WebRTC] Firestore signaling init notice:', err);
+    }
   }
 
   /**
-   * Transmits signaling packet to peers
+   * Transmits signaling packet to peers across network and local tabs
    */
   public sendSignalingPacket(packet: SignalingPacket) {
+    // 1. Broadcast locally for multi-tab testing
     if (this.broadcastChannel) {
       try {
         this.broadcastChannel.postMessage(packet);
@@ -469,6 +501,18 @@ export class WebRTCVoiceEngine {
         setTimeout(() => window.localStorage.removeItem(signalKey), 1500);
       } catch {}
     }
+
+    // 2. Transmit to Cloud Firestore for physical cross-device delivery
+    try {
+      if (db && this.channelId) {
+        const cleanCallId = this.channelId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50);
+        const signalsRef = collection(db, 'calls', cleanCallId, 'signaling');
+        addDoc(signalsRef, {
+          ...packet,
+          createdAt: Date.now(),
+        }).catch(() => {});
+      }
+    } catch {}
   }
 
   /**
@@ -835,6 +879,11 @@ export class WebRTCVoiceEngine {
     if (this.broadcastChannel) {
       this.broadcastChannel.close();
       this.broadcastChannel = null;
+    }
+
+    if (this.firestoreUnsub) {
+      this.firestoreUnsub();
+      this.firestoreUnsub = null;
     }
 
     if (typeof document !== 'undefined') {

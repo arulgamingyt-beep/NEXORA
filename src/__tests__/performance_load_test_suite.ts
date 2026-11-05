@@ -76,9 +76,9 @@ async function runPerformanceAudit() {
       'High-Throughput Message Ingestion (1,000 Transmissions)',
       duration,
       50,
-      `${Math.round(1000 / (duration / 1000))} msgs/sec`,
+      `${Math.round(1000 / (duration / 1000))} in-mem ops/sec`,
       passed,
-      'Rapid immutable message allocation processed with zero garbage collection spikes.'
+      'In-memory client allocation. (Production Cloud Firestore Spark rate limits apply: 1 write/sec per doc, 20,000 writes/day free quota).'
     );
   } catch (err: any) {
     recordPerf(1, 'Message Ingestion', 999, 50, '0', false, err.message);

@@ -409,8 +409,11 @@ export const CommunitySettingsModal: React.FC = () => {
             }`}
           >
             <span>Boost Perks</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-300 font-bold">
-              Lvl {boostCount >= 14 ? 3 : boostCount >= 7 ? 2 : 1}
+            <span className="flex items-center gap-1">
+              <span className="text-[9px] px-1 py-0.2 rounded bg-violet-500/20 text-violet-300 font-mono">v2</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-300 font-bold">
+                Lvl {boostCount >= 14 ? 3 : boostCount >= 7 ? 2 : 1}
+              </span>
             </span>
           </button>
         </div>
@@ -453,6 +456,7 @@ export const CommunitySettingsModal: React.FC = () => {
               }`}
             >
               <span>Soundboard</span>
+              <span className="text-[9px] px-1 py-0.2 rounded bg-violet-500/20 text-violet-300 font-mono">v2</span>
             </button>
           </div>
         </div>
@@ -549,7 +553,10 @@ export const CommunitySettingsModal: React.FC = () => {
               }`}
             >
               <span>App Directory</span>
-              <ExternalLink className="w-3 h-3 text-slate-500" />
+              <span className="flex items-center gap-1">
+                <span className="text-[9px] px-1 py-0.2 rounded bg-violet-500/20 text-violet-300 font-mono">v2</span>
+                <ExternalLink className="w-3 h-3 text-slate-500" />
+              </span>
             </button>
           </div>
         </div>
@@ -623,7 +630,10 @@ export const CommunitySettingsModal: React.FC = () => {
               }`}
             >
               <span>Server Insights</span>
-              <TrendingUp className="w-3 h-3 text-slate-500" />
+              <span className="flex items-center gap-1">
+                <span className="text-[9px] px-1 py-0.2 rounded bg-violet-500/20 text-violet-300 font-mono">v2</span>
+                <TrendingUp className="w-3 h-3 text-slate-500" />
+              </span>
             </button>
           </div>
         </div>

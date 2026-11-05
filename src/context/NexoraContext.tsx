@@ -189,7 +189,7 @@ interface NexoraContextType {
   ) => Promise<void>;
   reviewBetaApplication: (applicantId: string, status: 'approved' | 'rejected', notes?: string) => Promise<void>;
   refreshBetaStatus: () => Promise<void>;
-  loginWithGoogle: (customIdentity?: { email: string; displayName: string; avatar?: string }) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   quickDemoLogin: () => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: (userId: string) => Promise<{ success: boolean; message: string }>;
@@ -3535,43 +3535,7 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const loginWithGoogle = async (customIdentity?: { email: string; displayName: string; avatar?: string }) => {
-    // 1. If customIdentity was provided by the user (from Google Identity Dialog)
-    if (customIdentity?.email) {
-      const targetEmail = customIdentity.email.trim();
-      const cleanUsername = (customIdentity.displayName || targetEmail.split('@')[0])
-        .toLowerCase()
-        .replace(/[^a-z0-9_-]/g, '') || 'operative';
-      const displayName = customIdentity.displayName.trim() || cleanUsername;
-      const avatar = customIdentity.avatar || getRandomCyberAvatar();
-      const tag = `#${Math.floor(1000 + Math.random() * 9000)}`;
-
-      let profile: User = {
-        id: generateOperativeUID(),
-        username: cleanUsername,
-        displayName,
-        tag,
-        avatar,
-        bannerColor: 'from-violet-800 via-purple-900 to-indigo-950',
-        status: 'online',
-        customStatus: 'Verified Google Operative',
-        bio: 'Operative linked via Google Authentication Node.',
-        email: targetEmail,
-        joinedAt: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        role: 'member',
-      };
-
-      const passHash = await hashSecurityKey('google_auth_' + targetEmail);
-      saveVaultAccount({ user: profile, passwordHash: passHash });
-      setActiveVaultSession(profile);
-      setVaultUser(profile);
-      setCurrentUser(profile);
-      setAllUsers((prev) => ({ ...prev, [profile.id]: profile }));
-      showToast(`Google link verified. Welcome, ${profile.displayName}!`, 'success');
-      return;
-    }
-
-    // 2. Otherwise, attempt genuine live Firebase Google Popup:
+  const loginWithGoogle = async () => {
     try {
       const userCredential = await signInWithPopup(auth, googleProvider);
       const fbUser = userCredential.user;
@@ -3620,7 +3584,6 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (err?.code === 'auth/popup-closed-by-user') {
         throw new Error('Google sign-in popup was closed before completion.');
       }
-      // Re-throw so the UI can catch auth/unauthorized-domain and open the customized Google Connection Modal
       throw err;
     }
   };
@@ -3707,24 +3670,19 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const resetPassword = async (email: string) => {
+    const cleanEmail = email.trim();
     try {
-      await sendPasswordResetEmail(auth, email.trim());
-      showToast(`Password recovery link dispatched to ${email}`, 'success');
+      await sendPasswordResetEmail(auth, cleanEmail);
+      showToast(`Password recovery link dispatched to ${cleanEmail}`, 'success');
     } catch (err: any) {
-      if (
-        err?.code === 'auth/operation-not-allowed' ||
-        err?.code === 'auth/admin-restricted-operation' ||
-        findVaultAccountByEmail(email.trim())
-      ) {
-        const ok = await resetVaultAccountPassword(email.trim());
+      if (cleanEmail.toLowerCase() === 'demo_operative@nexora.tech') {
+        const ok = await resetVaultAccountPassword(cleanEmail);
         if (ok) {
-          showToast(`Password reset transmission confirmed! Security key reset to default: Nexora2026!`, 'success');
+          showToast(`Demo account security key reset to default: Nexora2026!`, 'info');
           return;
-        } else {
-          throw new Error('No operative account found matching this electronic mail address.');
         }
       }
-      throw err;
+      throw new Error(err?.message || 'Failed to dispatch password recovery link.');
     }
   };
 

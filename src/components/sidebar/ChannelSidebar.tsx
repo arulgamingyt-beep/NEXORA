@@ -235,11 +235,14 @@ export const ChannelSidebar: React.FC = () => {
               <button
                 onClick={() => {
                   setIsHeaderMenuOpen(false);
-                  showToast('Server events calendar active. Scheduled event created for community members.', 'info');
+                  showToast('Server events calendar is currently a v2 preview feature.', 'info');
                 }}
                 className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-violet-600 hover:text-white transition group"
               >
-                <span>Create Event</span>
+                <span className="flex items-center gap-1.5">
+                  <span>Create Event</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-mono">v2</span>
+                </span>
                 <Calendar className="w-4 h-4 text-slate-400 group-hover:text-white" />
               </button>
 
@@ -247,11 +250,14 @@ export const ChannelSidebar: React.FC = () => {
               <button
                 onClick={() => {
                   setIsHeaderMenuOpen(false);
-                  showToast('All discussion threads are synchronized and up-to-date.', 'info');
+                  showToast('Active Threads inspector is currently a v2 preview feature.', 'info');
                 }}
                 className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-violet-600 hover:text-white transition group"
               >
-                <span>Active Threads</span>
+                <span className="flex items-center gap-1.5">
+                  <span>Active Threads</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-mono">v2</span>
+                </span>
                 <MessageSquare className="w-4 h-4 text-slate-400 group-hover:text-white" />
               </button>
 
@@ -373,11 +379,14 @@ export const ChannelSidebar: React.FC = () => {
               <button
                 onClick={() => {
                   setIsHeaderMenuOpen(false);
-                  showToast('Raid Report logged. Defensive lockdown rules activated for this community.', 'warning');
+                  showToast('Raid Report logged into community audit stream. Automated lockdown available in v2.', 'warning');
                 }}
                 className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-400 hover:bg-rose-500/20 transition group"
               >
-                <span>Report Raid</span>
+                <span className="flex items-center gap-1.5">
+                  <span>Report Raid</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono">Preview</span>
+                </span>
                 <ShieldAlert className="w-4 h-4 text-rose-400" />
               </button>
 
