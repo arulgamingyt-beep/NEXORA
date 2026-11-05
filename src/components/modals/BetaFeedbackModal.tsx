@@ -533,3 +533,4 @@ export const BetaFeedbackModal: React.FC = () => {
     </div>
   );
 };
+

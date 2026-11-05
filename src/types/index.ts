@@ -18,6 +18,8 @@ export interface User {
   pronouns?: string;
   joinedAt: string;
   role?: UserRole; // within current community
+  acceptedLegalVersion?: string;
+  acceptedLegalAt?: string;
 }
 
 export type ChannelType = 'text' | 'voice' | 'announcement';

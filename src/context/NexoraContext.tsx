@@ -65,6 +65,7 @@ import {
   hashSecurityKey,
   generateOperativeUID,
   saveVaultAccount,
+  removeVaultAccount,
   findVaultAccount,
   findVaultAccountByEmail,
   verifyVaultCredentials,
@@ -161,6 +162,7 @@ interface NexoraContextType {
   loginWithGoogle: (customIdentity?: { email: string; displayName: string; avatar?: string }) => Promise<void>;
   quickDemoLogin: () => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: (userId: string) => Promise<{ success: boolean; message: string }>;
   resetPassword: (email: string) => Promise<void>;
   toggleChannelMute: (channelId: string) => void;
   setCurrentUser: (user: User) => void;
@@ -2888,6 +2890,8 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       email: cleanEmail,
       joinedAt: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
       role: 'member',
+      acceptedLegalVersion: 'v1.0',
+      acceptedLegalAt: new Date().toISOString(),
     };
 
     // Save in Vault so registration ALWAYS succeeds immediately!
@@ -3035,6 +3039,51 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     localStorage.removeItem(LOCAL_STORAGE_KEY + '_user');
     showToast('Terminal session disconnected securely. Returning to Gateway.', 'info');
+  };
+
+  const deleteAccount = async (userId: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      // 1. Purge user profile in Cloud Firestore if available
+      try {
+        await deleteDoc(doc(db, 'users', userId));
+      } catch (err) {
+        console.warn('[AccountDeletion] Firestore user doc purge notice:', err);
+      }
+
+      // 2. Remove user from all community memberships in local state
+      setCommunities((prev) =>
+        prev.map((comm) => ({
+          ...comm,
+          members: comm.members.filter((m) => m.userId !== userId),
+        }))
+      );
+
+      // 3. Remove friend records and friend requests involving the user
+      setFriends((prev) => prev.filter((f) => !f.userIds.includes(userId)));
+      setFriendRequests((prev) => prev.filter((r) => r.senderId !== userId && r.receiverId !== userId));
+
+      // 4. Remove account from local vault
+      removeVaultAccount(userId);
+
+      // 5. Clear active vault session and local storage cache
+      setActiveVaultSession(null);
+      setVaultUser(null);
+      setAuthUser(null);
+      try {
+        localStorage.removeItem(LOCAL_STORAGE_KEY + '_user');
+        localStorage.removeItem('nexora_active_session_v1');
+      } catch {}
+
+      // 6. Sign out from Firebase Auth
+      try {
+        await firebaseSignOut(auth);
+      } catch {}
+
+      showToast('Operative account and associated personal data permanently expunged.', 'info');
+      return { success: true, message: 'Account permanently expunged.' };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Failed to expunge account.' };
+    }
   };
 
   const resetPassword = async (email: string) => {
@@ -3201,6 +3250,7 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         loginWithGoogle,
         quickDemoLogin,
         logout,
+        deleteAccount,
         resetPassword,
         setCurrentUser,
         switchUser,

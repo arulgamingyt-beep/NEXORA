@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNexora } from '../../context/NexoraContext';
 import { toNumericUID } from '../../utils/authVault';
+import { LegalDocumentViewer, LegalDocType } from '../legal/LegalDocumentViewer';
 import {
   X,
   User,
@@ -64,8 +65,15 @@ export const UserSettingsModal: React.FC = () => {
     toggleSound,
     showToast,
     logout,
+    deleteAccount,
     resetPassword,
   } = useNexora();
+
+  // Legal and Deletion State
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [showLegalViewer, setShowLegalViewer] = useState<LegalDocType | null>(null);
 
   // All state hooks declared unconditionally at the top level
   const [activeTab, setActiveTab] = useState<SettingsTab>('account');
@@ -628,20 +636,22 @@ export const UserSettingsModal: React.FC = () => {
                     Account Removal
                   </span>
                   <p className="text-xs text-slate-300">
-                    Disabling your account means you can recover it at any time. Deleting permanently purges all operative logs.
+                    Deleting your account permanently purges your user profile, local vault credentials, and private direct message records from the backend.
                   </p>
-                  <div className="flex gap-2 pt-1">
+                  <div className="flex flex-wrap gap-2 pt-1">
                     <button
-                      onClick={() => showToast('Account deactivation requested', 'warning')}
-                      className="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 rounded-xl text-xs font-semibold border border-rose-500/30 transition"
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold transition cursor-pointer"
                     >
-                      Disable Account
+                      Expunge Operative Account
                     </button>
                     <button
-                      onClick={() => showToast('Account deletion confirmation sent to email', 'warning')}
-                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold transition"
+                      type="button"
+                      onClick={() => setShowLegalViewer('deletion')}
+                      className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-xl text-xs font-mono border border-white/10 transition cursor-pointer"
                     >
-                      Delete Account
+                      Read Data Purge Policy
                     </button>
                   </div>
                 </div>
@@ -1487,6 +1497,81 @@ export const UserSettingsModal: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Account Deletion Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-70 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-[#121424] border border-rose-500/40 rounded-3xl p-6 text-center space-y-4 shadow-2xl">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+
+            <div>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-widest bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase">
+                PERMANENT DATA EXPUNGE
+              </span>
+              <h3 className="text-lg font-bold text-white mt-2">Expunge Operative Account?</h3>
+              <p className="text-xs text-slate-300 mt-2 font-mono leading-relaxed">
+                This action is irreversible. Your profile document, local cryptographic vault credentials, and private direct message records will be permanently deleted from the backend.
+              </p>
+            </div>
+
+            <div className="space-y-2 text-left">
+              <label className="text-[11px] font-mono text-slate-400 block">
+                Type <strong className="text-rose-400">DELETE</strong> to confirm permanent erasure:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="DELETE"
+                className="w-full px-3 py-2 rounded-xl bg-black/50 border border-rose-500/30 text-white font-mono text-xs focus:outline-none focus:border-rose-400"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteConfirmText('');
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={deleteConfirmText.trim() !== 'DELETE' || isDeletingAccount}
+                onClick={async () => {
+                  setIsDeletingAccount(true);
+                  try {
+                    await deleteAccount(currentUser.id);
+                    closeModal();
+                  } catch (err: any) {
+                    showToast(err?.message || 'Failed to delete account', 'warning');
+                  } finally {
+                    setIsDeletingAccount(false);
+                    setShowDeleteConfirm(false);
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-bold transition cursor-pointer shadow-lg shadow-rose-600/30"
+              >
+                {isDeletingAccount ? 'Expunging...' : 'Confirm Deletion'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Legal Document Modal */}
+      {showLegalViewer && (
+        <LegalDocumentViewer
+          initialDoc={showLegalViewer}
+          onClose={() => setShowLegalViewer(null)}
+        />
+      )}
     </div>
   );
 };

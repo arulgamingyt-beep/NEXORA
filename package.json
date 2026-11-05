@@ -20,7 +20,8 @@
     "test:voice": "tsx src/__tests__/webrtc_voice_test_suite.ts",
     "test:comm": "tsx src/__tests__/advanced_communication_test_suite.ts",
     "test:feedback": "tsx src/__tests__/beta_feedback_test_suite.ts",
-    "test:landing": "tsx src/__tests__/landing_page_test_suite.ts"
+    "test:landing": "tsx src/__tests__/landing_page_test_suite.ts",
+    "test:legal": "tsx src/__tests__/legal_documentation_test_suite.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

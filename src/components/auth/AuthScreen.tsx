@@ -22,6 +22,7 @@ import {
   X,
   ExternalLink,
 } from 'lucide-react';
+import { LegalDocumentViewer, LegalDocType } from '../legal/LegalDocumentViewer';
 
 type AuthMode = 'login' | 'register' | 'forgot_password';
 
@@ -61,6 +62,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [googleCustomEmail, setGoogleCustomEmail] = useState('');
   const [googleCustomName, setGoogleCustomName] = useState('');
   const [googleCustomAvatar, setGoogleCustomAvatar] = useState(CYBER_AVATARS[0].url);
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
+  const [legalModalDoc, setLegalModalDoc] = useState<LegalDocType | null>(null);
 
   // Switch between Login, Register, Forgot Password
   const switchMode = (newMode: AuthMode) => {
@@ -143,6 +146,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
     if (password !== confirmPassword) {
       setErrorMessage('Security keys do not match. Please verify your entries.');
+      return;
+    }
+
+    if (!acceptedLegal) {
+      setErrorMessage('You must review and accept the Terms of Service, Privacy Policy, and Community Guidelines (v1.0) to register.');
       return;
     }
 
@@ -713,6 +721,46 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 </div>
               </div>
 
+              {/* Mandatory Legal & Privacy Acceptance Checkbox */}
+              <div className="pt-2 pb-1">
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-300 font-sans select-none">
+                  <input
+                    type="checkbox"
+                    checked={acceptedLegal}
+                    onChange={(e) => setAcceptedLegal(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded text-violet-600 bg-[#111322] border-violet-500/30 focus:ring-violet-500 cursor-pointer shrink-0"
+                    required
+                  />
+                  <span className="leading-relaxed text-[11px] text-slate-400">
+                    I have read and agree to the{' '}
+                    <button
+                      type="button"
+                      onClick={() => setLegalModalDoc('terms')}
+                      className="text-violet-400 hover:text-violet-300 underline font-mono cursor-pointer"
+                    >
+                      Terms of Service
+                    </button>
+                    ,{' '}
+                    <button
+                      type="button"
+                      onClick={() => setLegalModalDoc('privacy')}
+                      className="text-violet-400 hover:text-violet-300 underline font-mono cursor-pointer"
+                    >
+                      Privacy Policy
+                    </button>
+                    , and{' '}
+                    <button
+                      type="button"
+                      onClick={() => setLegalModalDoc('guidelines')}
+                      className="text-violet-400 hover:text-violet-300 underline font-mono cursor-pointer"
+                    >
+                      Community Guidelines
+                    </button>{' '}
+                    (v1.0)
+                  </span>
+                </label>
+              </div>
+
               {/* Primary Register Action Button */}
               <button
                 type="submit"
@@ -1024,6 +1072,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Interactive Legal Document Modal */}
+      {legalModalDoc && (
+        <LegalDocumentViewer
+          initialDoc={legalModalDoc}
+          onClose={() => setLegalModalDoc(null)}
+          showAcceptButton={true}
+          onAccept={() => setAcceptedLegal(true)}
+        />
       )}
     </div>
   );

@@ -162,6 +162,29 @@ export function updateVaultUserProfile(userId: string, updates: Partial<User>): 
   return null;
 }
 
+export function removeVaultAccount(userId: string): boolean {
+  try {
+    const all = getAllVaultAccounts();
+    let found = false;
+    for (const key of Object.keys(all)) {
+      if (all[key].user.id === userId) {
+        delete all[key];
+        found = true;
+      }
+    }
+    if (found) {
+      localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(all));
+    }
+    const active = getActiveVaultSession();
+    if (active && active.id === userId) {
+      setActiveVaultSession(null);
+    }
+    return found;
+  } catch {
+    return false;
+  }
+}
+
 export function getActiveVaultSession(): User | null {
   try {
     const raw = localStorage.getItem(ACTIVE_SESSION_KEY);

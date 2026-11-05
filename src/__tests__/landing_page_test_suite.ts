@@ -136,13 +136,13 @@ async function runLandingPageTestSuite() {
   // -------------------------------------------------------------------------
   const hasFooterCompany = landingSource.includes('NEXORA TECHNOLOGIES');
   const hasContact = landingSource.includes('contact@nexora.tech');
-  const hasPrivacyModal = landingSource.includes('NEXORA Privacy Policy') && landingSource.includes('Data Minimization');
-  const hasTermsModal = landingSource.includes('NEXORA Terms of Service') && landingSource.includes('Beta Disclaimer');
+  const hasLegalViewer = landingSource.includes('LegalDocumentViewer') && landingSource.includes('setActiveLegalModal');
+  const hasLegalLinks = landingSource.includes('Privacy Policy') && landingSource.includes('Terms of Service');
 
   assert(
-    hasFooterCompany && hasContact && hasPrivacyModal && hasTermsModal,
+    hasFooterCompany && hasContact && hasLegalViewer && hasLegalLinks,
     '[FOOTER & LEGAL] Company Footer with Interactive Privacy & Terms Modals',
-    'Includes contact placeholder and full interactive Privacy Policy & Terms of Service dialogs'
+    'Includes contact placeholder and full interactive Privacy Policy & Terms of Service dialogs via LegalDocumentViewer'
   );
 
   // -------------------------------------------------------------------------

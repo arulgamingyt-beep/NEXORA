@@ -28,6 +28,7 @@ import {
   Hash,
   Share2,
 } from 'lucide-react';
+import { LegalDocumentViewer, LegalDocType } from '../legal/LegalDocumentViewer';
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -38,7 +39,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onGetStarted 
   const { quickDemoLogin } = useNexora();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeLegalModal, setActiveLegalModal] = useState<'privacy' | 'terms' | null>(null);
+  const [activeLegalModal, setActiveLegalModal] = useState<LegalDocType | null>(null);
 
   // Smooth scroll handler
   const scrollToSection = (id: string) => {
@@ -640,7 +641,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onGetStarted 
           </div>
 
           {/* Center Links */}
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
             <button
               onClick={() => setActiveLegalModal('privacy')}
               className="hover:text-white transition cursor-pointer"
@@ -652,6 +653,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onGetStarted 
               className="hover:text-white transition cursor-pointer"
             >
               Terms of Service
+            </button>
+            <button
+              onClick={() => setActiveLegalModal('guidelines')}
+              className="hover:text-white transition cursor-pointer"
+            >
+              Community Guidelines
+            </button>
+            <button
+              onClick={() => setActiveLegalModal('deletion')}
+              className="hover:text-white transition cursor-pointer"
+            >
+              Data Rights & Deletion
             </button>
             <a
               href="mailto:contact@nexora.tech"
@@ -670,73 +683,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onGetStarted 
       </footer>
 
       {/* ==================================================================== */}
-      {/* LEGAL MODALS (PRIVACY POLICY & TERMS OF SERVICE) */}
+      {/* LEGAL & PRIVACY DOCUMENTATION HUB */}
       {/* ==================================================================== */}
       {activeLegalModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-2xl bg-[#0f1122] border border-violet-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl text-left space-y-4 max-h-[85vh] overflow-y-auto custom-purple-scrollbar">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-violet-400" />
-                <h3 className="text-lg font-bold text-white">
-                  {activeLegalModal === 'privacy' ? 'NEXORA Privacy Policy' : 'NEXORA Terms of Service'}
-                </h3>
-              </div>
-              <button
-                onClick={() => setActiveLegalModal(null)}
-                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {activeLegalModal === 'privacy' ? (
-              <div className="space-y-3 text-xs text-slate-300 font-sans leading-relaxed">
-                <p>
-                  <strong>1. Data Minimization:</strong> NEXORA TECHNOLOGIES collects only the data strictly necessary to facilitate
-                  real-time communication: account callsigns, profile avatars, community memberships, and transmission payloads.
-                </p>
-                <p>
-                  <strong>2. Password Storage:</strong> Passwords are never stored in plaintext. Passwords undergo client-side salted
-                  SHA-256 cryptographic hashing prior to persistence or verification.
-                </p>
-                <p>
-                  <strong>3. WebRTC Direct Streaming:</strong> Audio and video streams flow directly peer-to-peer using standard WebRTC.
-                  Media streams do not pass through or get recorded by NEXORA media servers.
-                </p>
-                <p>
-                  <strong>4. Third-Party Tracking:</strong> NEXORA does not sell user data, integrate advertising trackers, or monetize
-                  transmission metadata.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3 text-xs text-slate-300 font-sans leading-relaxed">
-                <p>
-                  <strong>1. Acceptance of Terms:</strong> By accessing NEXORA terminals, you agree to adhere to community guidelines
-                  and acceptable use policies.
-                </p>
-                <p>
-                  <strong>2. Acceptable Use:</strong> Users agree not to transmit malicious payloads, perform Denial-of-Service attacks,
-                  or attempt unauthorized privilege escalation.
-                </p>
-                <p>
-                  <strong>3. Beta Disclaimer:</strong> NEXORA is provided for community communication and testing purposes. NEXORA
-                  TECHNOLOGIES provides the service on an as-is basis without warranties against network interruptions.
-                </p>
-              </div>
-            )}
-
-            <div className="pt-3 border-t border-white/10">
-              <button
-                onClick={() => setActiveLegalModal(null)}
-                className="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs transition cursor-pointer"
-              >
-                Understood & Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <LegalDocumentViewer
+          initialDoc={activeLegalModal}
+          onClose={() => setActiveLegalModal(null)}
+        />
       )}
     </div>
   );
 };
+
