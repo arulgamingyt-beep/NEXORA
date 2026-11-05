@@ -119,6 +119,16 @@ export interface Community {
   suspendedReason?: string;
   suspendedAt?: string;
   reportedCount?: number;
+  serverTag?: string;
+  traits?: string[];
+  customBanner?: string;
+  verificationLevel?: 'none' | 'low' | 'medium' | 'high';
+  boostCount?: number;
+  boostLevel?: 0 | 1 | 2 | 3;
+  customEmojis?: { id: string; name: string; url: string }[];
+  customStickers?: { id: string; name: string; url: string }[];
+  customSounds?: { id: string; name: string; url: string }[];
+  bannedUserIds?: string[];
 }
 
 export interface DMConversation {

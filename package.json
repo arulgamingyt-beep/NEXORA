@@ -28,6 +28,7 @@
     "test:search": "tsx src/__tests__/search_discovery_test_suite.ts",
     "test:discovery": "tsx src/__tests__/community_discovery_test_suite.ts",
     "test:profile": "tsx src/__tests__/user_profile_customization_test_suite.ts",
+    "test:settings": "tsx src/__tests__/discord_server_settings_test_suite.ts",
     "test:master": "tsx src/__tests__/master_release_validation_suite.ts"
   },
   "dependencies": {

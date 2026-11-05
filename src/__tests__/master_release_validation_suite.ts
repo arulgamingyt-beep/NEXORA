@@ -116,6 +116,12 @@ const auditRoster: SubsystemAudit[] = [
     status: 'NOT TESTED',
     details: 'Presence status transitions (online, idle, dnd, offline), 2MB avatar ceiling, bio.',
   },
+  {
+    name: 'Discord-Style Server Settings & Context Menu',
+    command: 'npm run test:settings',
+    status: 'NOT TESTED',
+    details: '18 context options, fullscreen server profile, 10-banner palette, traits, live preview card.',
+  },
 ];
 
 async function runMasterReleaseValidation() {
@@ -133,7 +139,7 @@ async function runMasterReleaseValidation() {
     process.stdout.write(`[${i + 1}/${auditRoster.length}] Auditing: ${item.name}... `);
 
     try {
-      execSync(item.command, { stdio: 'pipe', timeout: 45000, shell: true });
+      execSync(item.command, { stdio: 'pipe', timeout: 45000, shell: 'cmd.exe' });
       item.status = 'PASS';
       passedSuites++;
       console.log('✅ PASS');

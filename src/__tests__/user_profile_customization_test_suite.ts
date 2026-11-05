@@ -181,3 +181,4 @@ runProfileCustomizationSuite().catch((err) => {
   console.error('Fatal error in profile customization suite:', err);
   process.exit(1);
 });
+
