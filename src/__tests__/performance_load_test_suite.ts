@@ -249,3 +249,4 @@ runPerformanceAudit().catch(err => {
   console.error('Performance test failed:', err);
   process.exit(1);
 });
+

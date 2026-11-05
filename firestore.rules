@@ -58,7 +58,8 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && isValidId(communityId) && request.resource.data.ownerId == request.auth.uid;
       allow update: if isSignedIn() && isValidId(communityId) && (
-        resource.data.ownerId == request.auth.uid || isCommunityModerator(communityId)
+        resource.data.ownerId == request.auth.uid ||
+        (isCommunityModerator(communityId) && request.resource.data.ownerId == resource.data.ownerId)
       );
       allow delete: if isSignedIn() && isValidId(communityId) && resource.data.ownerId == request.auth.uid;
 
@@ -66,7 +67,8 @@ service cloud.firestore {
       match /members/{memberId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && isValidId(memberId) && (
-          request.auth.uid == memberId || isCommunityModerator(communityId)
+          (request.auth.uid == memberId && (request.resource.data.role == 'member' || !('role' in request.resource.data))) ||
+          isCommunityModerator(communityId)
         );
         allow update: if isCommunityModerator(communityId);
         allow delete: if isSignedIn() && (
@@ -205,8 +207,8 @@ service cloud.firestore {
         request.resource.data.senderId == request.auth.uid &&
         request.resource.data.receiverId != request.auth.uid;
       allow update: if isSignedIn() && isValidId(requestId) && (
-        resource.data.receiverId == request.auth.uid ||
-        resource.data.senderId == request.auth.uid
+        (resource.data.receiverId == request.auth.uid && request.resource.data.status in ['accepted', 'rejected']) ||
+        (resource.data.senderId == request.auth.uid && request.resource.data.status == 'canceled')
       );
       allow delete: if isSignedIn() && isValidId(requestId) && (
         resource.data.senderId == request.auth.uid ||

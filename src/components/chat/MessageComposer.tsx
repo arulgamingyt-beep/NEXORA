@@ -64,7 +64,14 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({ placeholder })
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB security ceiling
+
     Array.from(files).forEach((file) => {
+      if (file.size > MAX_FILE_SIZE) {
+        showToast(`File "${file.name}" exceeds security limit of 5 MB.`, 'warning');
+        return;
+      }
+
       const isImage = file.type.startsWith('image/');
       const sizeStr = file.size > 1024 * 1024
         ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`

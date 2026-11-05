@@ -341,6 +341,85 @@ async function runSecurityAudit() {
     recordAudit(10, 'INTEGRITY', 'Community Dissolution Guard', false, 'Malicious deletion', err.message);
   }
 
+  // 11. Member Role Elevation on Community Join Guard
+  try {
+    const rulesPath = path.resolve('firestore.rules');
+    const rules = fs.readFileSync(rulesPath, 'utf8');
+
+    const roleElevateBlocked = rules.includes("request.resource.data.role == 'member'") &&
+      rules.includes('isCommunityModerator(communityId)');
+
+    recordAudit(
+      11,
+      'AUTHORIZATION',
+      'Community Member Role Elevation on Join Barrier',
+      roleElevateBlocked,
+      'Joining users assigning themselves "admin" or "owner" role during membership creation',
+      'firestore.rules restricts self-join role assignment strictly to "member". Elevated roles require moderator action.'
+    );
+  } catch (err: any) {
+    recordAudit(11, 'AUTHORIZATION', 'Member Role Elevation Barrier', false, 'Privilege escalation', err.message);
+  }
+
+  // 12. Community Ownership Hijacking Prevention
+  try {
+    const rulesPath = path.resolve('firestore.rules');
+    const rules = fs.readFileSync(rulesPath, 'utf8');
+
+    const ownerHijackBlocked = rules.includes('request.resource.data.ownerId == resource.data.ownerId');
+
+    recordAudit(
+      12,
+      'INTEGRITY',
+      'Community Ownership Hijacking Prevention Guard',
+      ownerHijackBlocked,
+      'Community moderators or administrators overwriting ownerId to steal community ownership',
+      'firestore.rules prevents non-owner moderators from modifying the community ownerId field.'
+    );
+  } catch (err: any) {
+    recordAudit(12, 'INTEGRITY', 'Ownership Hijack Guard', false, 'Ownership theft', err.message);
+  }
+
+  // 13. Friend Request Force-Acceptance Barrier
+  try {
+    const rulesPath = path.resolve('firestore.rules');
+    const rules = fs.readFileSync(rulesPath, 'utf8');
+
+    const senderAcceptBlocked = rules.includes("resource.data.receiverId == request.auth.uid && request.resource.data.status in ['accepted', 'rejected']") &&
+      rules.includes("resource.data.senderId == request.auth.uid && request.resource.data.status == 'canceled'");
+
+    recordAudit(
+      13,
+      'AUTHORIZATION',
+      'Friend Request Force-Acceptance Barrier',
+      senderAcceptBlocked,
+      'Sender force-updating friend request status to "accepted" without recipient consent',
+      'firestore.rules restricts "accepted" and "rejected" transitions exclusively to the recipient user.'
+    );
+  } catch (err: any) {
+    recordAudit(13, 'AUTHORIZATION', 'Friend Force-Accept Barrier', false, 'Unconsented friendship', err.message);
+  }
+
+  // 14. File Attachment Upload Size Ceiling
+  try {
+    const composerPath = path.resolve('src/components/chat/MessageComposer.tsx');
+    const composerContent = fs.readFileSync(composerPath, 'utf8');
+
+    const hasSizeCeiling = composerContent.includes('MAX_FILE_SIZE') &&
+      composerContent.includes('5 * 1024 * 1024');
+
+    recordAudit(
+      14,
+      'RESOURCE EXHAUSTION',
+      'File Attachment 5MB Security Ceiling',
+      hasSizeCeiling,
+      'Denial-of-Service via massive file uploads crashing browser memory or exceeding Firestore 1MB document quota',
+      'Client-side file size guard rejects attachments exceeding 5MB before Base64 serialization.'
+    );
+  } catch (err: any) {
+    recordAudit(14, 'RESOURCE EXHAUSTION', 'File Size Ceiling', false, 'Resource exhaustion', err.message);
+  }
+
   // -------------------------------------------------------------------------
   // SUMMARY
   // -------------------------------------------------------------------------

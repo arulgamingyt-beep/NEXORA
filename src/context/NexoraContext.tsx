@@ -768,6 +768,10 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const switchUser = (userId: string) => {
+    if (authUser) {
+      showToast('Account impersonation is blocked for active cloud sessions. Sign out first.', 'warning');
+      return;
+    }
     const targetUser = allUsers[userId];
     if (targetUser) {
       setCurrentUser(targetUser);
