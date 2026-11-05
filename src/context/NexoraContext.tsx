@@ -28,6 +28,10 @@ import {
   AdminAuditLog,
   PlatformReport,
   PlatformDashboardMetrics,
+  NexoraNotification,
+  NotificationType,
+  NotificationCategory,
+  NotificationPreferences,
 } from '../types';
 import {
   CURRENT_USER,
@@ -86,6 +90,7 @@ import { webrtcVoiceService } from '../utils/webrtcVoice';
 import { callSignalingService } from '../services/callSignaling';
 import { betaAccessService } from '../services/betaAccessService';
 import { adminService } from '../services/adminService';
+import { notificationService } from '../services/notificationService';
 
 export type ModalType =
   | 'user_settings'
@@ -103,6 +108,7 @@ export type ModalType =
   | 'admin_panel'
   | 'report_abuse'
   | 'welcome'
+  | 'notification_settings'
   | null;
 
 interface ToastInfo {
@@ -258,6 +264,23 @@ interface NexoraContextType {
   resolveReport: (reportId: string, decision: ModerationDecision, notes?: string) => Promise<{ success: boolean; message: string }>;
   dismissReport: (reportId: string, notes?: string) => Promise<{ success: boolean; message: string }>;
   revokeBetaAccess: (applicantId: string, reason?: string) => Promise<{ success: boolean; message: string }>;
+
+  // Notification & Activity Center
+  notifications: NexoraNotification[];
+  unreadNotificationCount: number;
+  notificationPreferences: NotificationPreferences;
+  isNotificationCenterOpen: boolean;
+  toggleNotificationCenter: () => void;
+  setIsNotificationCenterOpen: (open: boolean) => void;
+  markNotificationAsRead: (id: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
+  deleteNotification: (id: string) => Promise<void>;
+  clearAllNotifications: () => Promise<void>;
+  updateNotificationPreferences: (updates: Partial<NotificationPreferences>) => void;
+  toggleMuteCommunity: (communityId: string) => boolean;
+  toggleMuteConversation: (conversationId: string) => boolean;
+  requestDesktopNotificationPermission: () => Promise<'granted' | 'denied' | 'default'>;
+  navigateToNotificationTarget: (notification: NexoraNotification) => void;
 }
 
 const NexoraContext = createContext<NexoraContextType | undefined>(undefined);
@@ -396,6 +419,102 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // ---------------------------------------------------------------------------
+  // Notification & Activity Center State & Operations
+  // ---------------------------------------------------------------------------
+  const [notifications, setNotifications] = useState<NexoraNotification[]>([]);
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(() => {
+    return notificationService.getPreferences(currentUser?.id || '');
+  });
+
+  const unreadNotificationCount = notifications.filter((n) => !n.isRead).length;
+
+  // Real-Time Notification Stream with Listener Cleanup
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    setNotificationPreferences(notificationService.getPreferences(currentUser.id));
+
+    const unsubscribe = notificationService.listenToNotifications(currentUser.id, (list) => {
+      setNotifications(list);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [currentUser?.id]);
+
+  const toggleNotificationCenter = () => {
+    setIsNotificationCenterOpen((prev) => !prev);
+  };
+
+  const markNotificationAsRead = async (id: string) => {
+    await notificationService.markAsRead(currentUser.id, id);
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    await notificationService.markAllAsRead(currentUser.id);
+    showToast('All notifications marked as read', 'info');
+  };
+
+  const deleteNotification = async (id: string) => {
+    await notificationService.deleteNotification(currentUser.id, id);
+  };
+
+  const clearAllNotifications = async () => {
+    await notificationService.clearAllNotifications(currentUser.id);
+    showToast('Notification center cleared', 'info');
+  };
+
+  const updateNotificationPreferences = (updates: Partial<NotificationPreferences>) => {
+    const updated = notificationService.savePreferences(currentUser.id, updates);
+    setNotificationPreferences(updated);
+    showToast('Notification preferences updated', 'success');
+  };
+
+  const toggleMuteCommunity = (communityId: string) => {
+    const isMuted = notificationService.toggleMuteCommunity(currentUser.id, communityId);
+    setNotificationPreferences(notificationService.getPreferences(currentUser.id));
+    showToast(isMuted ? 'Community notifications muted' : 'Community notifications unmuted', 'info');
+    return isMuted;
+  };
+
+  const toggleMuteConversation = (conversationId: string) => {
+    const isMuted = notificationService.toggleMuteConversation(currentUser.id, conversationId);
+    setNotificationPreferences(notificationService.getPreferences(currentUser.id));
+    showToast(isMuted ? 'Conversation muted' : 'Conversation unmuted', 'info');
+    return isMuted;
+  };
+
+  const requestDesktopNotificationPermission = async () => {
+    const result = await notificationService.requestBrowserPermission();
+    if (result === 'granted') {
+      updateNotificationPreferences({ desktopEnabled: true });
+      showToast('Desktop notifications permitted and enabled.', 'success');
+    } else {
+      updateNotificationPreferences({ desktopEnabled: false });
+      showToast('Desktop notification permission denied or unsupported.', 'warning');
+    }
+    return result;
+  };
+
+  const navigateToNotificationTarget = (notification: NexoraNotification) => {
+    markNotificationAsRead(notification.id);
+    setIsNotificationCenterOpen(false);
+
+    if (notification.targetCommunityId) {
+      setActiveCommunityId(notification.targetCommunityId);
+      if (notification.targetChannelId) {
+        setActiveChannelId(notification.targetChannelId);
+      }
+    } else if (notification.targetConversationId) {
+      setActiveCommunityId(null);
+      setActiveDMId(notification.targetConversationId);
+    } else if (notification.targetUserId) {
+      openDMWithUser(notification.targetUserId);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
   // Administrative & Moderation Clearance Actions
   // ---------------------------------------------------------------------------
   const platformRole: PlatformRole = adminService.getEffectiveRole(currentUser);
@@ -416,6 +535,18 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (currentUser.id === targetUserId) {
         setCurrentUser(updated);
       }
+      notificationService
+        .sendNotification({
+          recipientId: targetUserId,
+          senderId: currentUser.id,
+          senderName: 'NEXORA Administration',
+          senderAvatar: '',
+          type: 'moderation_action',
+          category: 'system',
+          title: 'Account Clearance Suspended',
+          body: reason || 'Violation of terms of service.',
+        })
+        .catch(() => {});
       showToast(`User @${target.username} has been suspended.`, 'warning');
       return { success: true, message: 'Account suspended.' };
     } catch (err: any) {
@@ -435,6 +566,18 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (currentUser.id === targetUserId) {
         setCurrentUser(updated);
       }
+      notificationService
+        .sendNotification({
+          recipientId: targetUserId,
+          senderId: currentUser.id,
+          senderName: 'NEXORA Administration',
+          senderAvatar: '',
+          type: 'moderation_action',
+          category: 'system',
+          title: 'Account Reactivated',
+          body: 'Your account suspension has been lifted by platform administration.',
+        })
+        .catch(() => {});
       showToast(`User @${target.username} has been reactivated.`, 'success');
       return { success: true, message: 'Account reactivated.' };
     } catch (err: any) {
@@ -455,6 +598,18 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (currentUser.id === targetUserId) {
         setCurrentUser(updated);
       }
+      notificationService
+        .sendNotification({
+          recipientId: targetUserId,
+          senderId: currentUser.id,
+          senderName: 'NEXORA Administration',
+          senderAvatar: '',
+          type: 'moderation_action',
+          category: 'system',
+          title: 'Clearance Level Updated',
+          body: `Your platform authorization clearance was updated to ${newRole.toUpperCase()}.`,
+        })
+        .catch(() => {});
       showToast(`User @${target.username} role updated to ${newRole.toUpperCase()}.`, 'success');
       return { success: true, message: 'Platform role updated.' };
     } catch (err: any) {
@@ -1312,6 +1467,77 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           readBy: [currentUser.id],
         }).catch(() => {});
       }
+
+      // 3. Dispatch real-time notifications
+      if (activeDMId) {
+        const currentDM = dmConversations.find((d) => d.id === activeDMId);
+        const recipientIds =
+          currentDM?.participants.map((p) => p.id).filter((id) => id !== currentUser.id) || [];
+        recipientIds.forEach((recipientId) => {
+          notificationService
+            .sendNotification({
+              recipientId,
+              senderId: currentUser.id,
+              senderName: currentUser.displayName || currentUser.username,
+              senderAvatar: currentUser.avatar,
+              type: 'dm_message',
+              category: 'direct',
+              title: `Transmission from @${currentUser.username}`,
+              body: content.trim().slice(0, 100),
+              targetConversationId: activeDMId,
+            })
+            .catch(() => {});
+        });
+      } else if (activeCommunityId && activeChannelId) {
+        // Parse mentions (@callsign)
+        const mentionMatches = content.match(/@(\w+)/g);
+        if (mentionMatches) {
+          mentionMatches.forEach((m) => {
+            const mentionedCallsign = m.replace('@', '').toLowerCase();
+            const targetUser = Object.values(allUsers).find(
+              (u) => u.username.toLowerCase() === mentionedCallsign
+            );
+            if (targetUser && targetUser.id !== currentUser.id) {
+              notificationService
+                .sendNotification({
+                  recipientId: targetUser.id,
+                  senderId: currentUser.id,
+                  senderName: currentUser.displayName || currentUser.username,
+                  senderAvatar: currentUser.avatar,
+                  type: 'mention',
+                  category: 'mentions',
+                  title: `@${currentUser.username} mentioned you in #${activeChannel?.name || 'chat'}`,
+                  body: content.trim().slice(0, 100),
+                  targetCommunityId: activeCommunityId,
+                  targetChannelId: activeChannelId,
+                })
+                .catch(() => {});
+            }
+          });
+        }
+
+        // Announcement channel broadcast notification
+        if (activeChannel?.type === 'announcement' && activeCommunity) {
+          activeCommunity.members
+            .filter((m) => m.userId !== currentUser.id)
+            .forEach((member) => {
+              notificationService
+                .sendNotification({
+                  recipientId: member.userId,
+                  senderId: currentUser.id,
+                  senderName: currentUser.displayName || currentUser.username,
+                  senderAvatar: currentUser.avatar,
+                  type: 'announcement',
+                  category: 'community',
+                  title: `Announcement in ${activeCommunity.name}`,
+                  body: content.trim().slice(0, 100),
+                  targetCommunityId: activeCommunityId,
+                  targetChannelId: activeChannelId,
+                })
+                .catch(() => {});
+            });
+        }
+      }
     } catch (err: any) {
       console.warn('Persistent message save notice:', err);
     }
@@ -1943,6 +2169,19 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCommunityInvites((prev) => [newInvite, ...prev]);
 
     if (options.directUserId) {
+      notificationService
+        .sendNotification({
+          recipientId: options.directUserId,
+          senderId: currentUser.id,
+          senderName: currentUser.displayName || currentUser.username,
+          senderAvatar: currentUser.avatar,
+          type: 'community_invite',
+          category: 'community',
+          title: `Invitation to ${comm.name}`,
+          body: `@${currentUser.username} invited you to join ${comm.name}.`,
+          targetCommunityId: comm.id,
+        })
+        .catch(() => {});
       showToast(`Direct invite sent to ${targetUser?.displayName}!`, 'success');
     } else {
       showToast(`Invite link generated: ${code}`, 'success');
@@ -2382,6 +2621,20 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setActiveCall(newCall);
 
+    notificationService
+      .sendNotification({
+        recipientId: targetUserId,
+        senderId: currentUser.id,
+        senderName: currentUser.displayName || currentUser.username,
+        senderAvatar: currentUser.avatar,
+        type: type === 'video' ? 'call_video' : 'call_voice',
+        category: 'calls',
+        title: type === 'video' ? 'Incoming Video Link' : 'Incoming Secure Audio Link',
+        body: `@${currentUser.username} is calling you.`,
+        targetUserId: currentUser.id,
+      })
+      .catch(() => {});
+
     await webrtcVoiceService.joinChannel(
       newCall.id,
       {
@@ -2432,6 +2685,25 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     setActiveCall(newCall);
+
+    participantIds
+      .filter((pid) => pid !== currentUser.id)
+      .forEach((pid) => {
+        notificationService
+          .sendNotification({
+            recipientId: pid,
+            senderId: currentUser.id,
+            senderName: currentUser.displayName || currentUser.username,
+            senderAvatar: currentUser.avatar,
+            type: type === 'video' ? 'call_video' : 'call_voice',
+            category: 'calls',
+            title:
+              type === 'video' ? 'Incoming Group Video Link' : 'Incoming Group Audio Link',
+            body: `@${currentUser.username} is calling group "${group.name || 'Transmission'}"`,
+            targetUserId: currentUser.id,
+          })
+          .catch(() => {});
+      });
 
     await webrtcVoiceService.joinChannel(
       newCall.id,
@@ -2678,6 +2950,20 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }).catch(() => {});
     } catch {}
 
+    notificationService
+      .sendNotification({
+        recipientId: targetUser.id,
+        senderId: currentUser.id,
+        senderName: currentUser.displayName || currentUser.username,
+        senderAvatar: currentUser.avatar,
+        type: 'friend_request',
+        category: 'direct',
+        title: 'Operative Network Request',
+        body: `@${currentUser.username} sent you a friend connection request.`,
+        targetUserId: currentUser.id,
+      })
+      .catch(() => {});
+
     showToast(`Friend request transmitted to ${targetUser.displayName}!`, 'success');
     return { success: true, message: `Friend request sent to ${targetUser.displayName}!` };
   };
@@ -2714,6 +3000,20 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         createdAt: new Date().toISOString(),
       }).catch(() => {});
     } catch {}
+
+    notificationService
+      .sendNotification({
+        recipientId: otherUser.id,
+        senderId: currentUser.id,
+        senderName: currentUser.displayName || currentUser.username,
+        senderAvatar: currentUser.avatar,
+        type: 'friend_accept',
+        category: 'direct',
+        title: 'Connection Accepted',
+        body: `@${currentUser.username} accepted your operative connection request.`,
+        targetUserId: currentUser.id,
+      })
+      .catch(() => {});
 
     showToast(`You and ${otherUser.displayName} are now friends!`, 'success');
   };
@@ -3644,6 +3944,23 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         resolveReport,
         dismissReport,
         revokeBetaAccess,
+
+        // Notification & Activity Center
+        notifications,
+        unreadNotificationCount,
+        notificationPreferences,
+        isNotificationCenterOpen,
+        toggleNotificationCenter,
+        setIsNotificationCenterOpen,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+        deleteNotification,
+        clearAllNotifications,
+        updateNotificationPreferences,
+        toggleMuteCommunity,
+        toggleMuteConversation,
+        requestDesktopNotificationPermission,
+        navigateToNotificationTarget,
       }}
     >
       {children}

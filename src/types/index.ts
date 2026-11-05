@@ -344,6 +344,57 @@ export interface PlatformDashboardMetrics {
   pendingBetaApplications: number;
 }
 
+// ---------------------------------------------------------------------------
+// Notification & Activity Center Schemas
+// ---------------------------------------------------------------------------
+export type NotificationType =
+  | 'dm_message'
+  | 'friend_request'
+  | 'friend_accept'
+  | 'community_invite'
+  | 'announcement'
+  | 'mention'
+  | 'call_voice'
+  | 'call_video'
+  | 'moderation_action';
+
+export type NotificationCategory = 'all' | 'direct' | 'mentions' | 'community' | 'calls' | 'system';
+
+export interface NexoraNotification {
+  id: string;
+  recipientId: string;
+  senderId?: string;
+  senderName: string;
+  senderAvatar?: string;
+  type: NotificationType;
+  category: NotificationCategory;
+  title: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+  targetCommunityId?: string;
+  targetChannelId?: string;
+  targetConversationId?: string;
+  targetUserId?: string;
+  actionUrl?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface NotificationPreferences {
+  soundEnabled: boolean;
+  desktopEnabled: boolean;
+  categories: {
+    direct: boolean;
+    mentions: boolean;
+    community: boolean;
+    calls: boolean;
+    system: boolean;
+  };
+  mutedCommunities: Record<string, boolean>;
+  mutedConversations: Record<string, boolean>;
+}
+
+
 
 
 

@@ -315,7 +315,7 @@ async function runAdminControlPanelSuite() {
   );
   assert(resolvedReport.status === 'resolved', 'Report status successfully transitioned to resolved');
   assert(resolvedReport.decision === 'account_suspended', 'Decision recorded as account_suspended');
-  assert(resolvedReport.moderatorNotes?.includes('Evidence confirmed'), 'Moderator rationale captured in permanent record');
+  assert(Boolean(resolvedReport.moderatorNotes?.includes('Evidence confirmed')), 'Moderator rationale captured in permanent record');
   assert(resolvedReport.resolvedBy === moderatorUser.id, 'Moderator identity recorded on resolved report');
 
   // ---------------------------------------------------------------------------
@@ -404,6 +404,7 @@ async function runAdminControlPanelSuite() {
       id: 'm2',
       authorId: 'u2',
       authorName: 'Elena',
+      authorAvatar: '',
       authorRole: 'admin',
       authorTag: '#2',
       content: 'Transmission 2',

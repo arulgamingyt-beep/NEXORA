@@ -18,6 +18,8 @@ import {
   Compass,
 } from 'lucide-react';
 import { UserStatus } from '../../types';
+import { NotificationBell } from '../notifications/NotificationBell';
+import { NotificationCenterPopover } from '../notifications/NotificationCenterPopover';
 
 export const TopHubHeader: React.FC = () => {
   const {
@@ -190,19 +192,8 @@ export const TopHubHeader: React.FC = () => {
           </button>
         )}
 
-        {/* Pending Invites Alert */}
-        {pendingInvitesCount > 0 && (
-          <button
-            onClick={() => openModal('invite')}
-            title={`${pendingInvitesCount} pending invitation(s)`}
-            className="relative p-1.5 rounded-lg bg-violet-600/20 text-violet-300 border border-violet-500/30 hover:bg-violet-600/30 transition cursor-pointer"
-          >
-            <Bell className="w-3.5 h-3.5" />
-            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center animate-bounce">
-              {pendingInvitesCount}
-            </span>
-          </button>
-        )}
+        {/* Notification & Activity Center Bell */}
+        <NotificationBell />
 
         {/* Fast User Persona / Profile Pill */}
         <div className="relative">
@@ -360,6 +351,9 @@ export const TopHubHeader: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Notification Center Popover */}
+      <NotificationCenterPopover />
     </header>
   );
 };

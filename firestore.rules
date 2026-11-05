@@ -439,5 +439,37 @@ service cloud.firestore {
       // Only Super Admins can purge audit records
       allow delete: if isSuperAdmin() && isValidId(logId);
     }
+
+    // 19. Notifications Collection (Activity Center)
+    match /notifications/{notificationId} {
+      // Operatives can ONLY read notifications targeted directly to them
+      allow read: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+
+      // Operatives can only update their own notifications (e.g. mark as read)
+      allow update: if isSignedIn() && isValidId(notificationId) &&
+        resource.data.recipientId == request.auth.uid &&
+        request.resource.data.recipientId == request.auth.uid;
+
+      // Operatives can delete their own notifications
+      allow delete: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+
+      // Notification creation:
+      // 1. Authenticated user can trigger notification for recipient (DMs, mentions, calls, invites)
+      // 2. Moderation action notifications strictly require isPlatformModerator()!
+      allow create: if isSignedIn() && isValidId(notificationId) &&
+        request.resource.data.recipientId is string &&
+        (
+          request.resource.data.senderId == request.auth.uid ||
+          request.auth.uid == request.resource.data.recipientId ||
+          isPlatformModerator()
+        ) &&
+        // Non-moderators are strictly blocked from forging 'moderation_action' notifications!
+        (request.resource.data.type != 'moderation_action' || isPlatformModerator());
+    }
+
+    // 20. Notification Preferences Subcollection
+    match /users/{userId}/preferences/{docId} {
+      allow read, write: if isUser(userId);
+    }
   }
 }

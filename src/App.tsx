@@ -21,6 +21,7 @@ import { BetaFeedbackAdminModal } from './components/modals/BetaFeedbackAdminMod
 import { AdminControlPanelModal } from './components/admin/AdminControlPanelModal';
 import { UserSuspendedScreen } from './components/admin/UserSuspendedScreen';
 import { ReportAbuseModal } from './components/modals/ReportAbuseModal';
+import { NotificationSettingsModal } from './components/modals/NotificationSettingsModal';
 import { ActiveCallRoom } from './components/calling/ActiveCallRoom';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { LandingPage } from './components/landing/LandingPage';
@@ -164,6 +165,7 @@ const NexoraApp: React.FC = () => {
       {activeModal === 'beta_feedback' && <BetaFeedbackModal />}
       {(activeModal === 'admin_panel' || activeModal === 'beta_admin') && <AdminControlPanelModal />}
       {activeModal === 'report_abuse' && <ReportAbuseModal />}
+      {activeModal === 'notification_settings' && <NotificationSettingsModal />}
       {activeModal === 'welcome' && <WelcomeGuideModal />}
 
       {/* Real-Time Communications HUD */}
