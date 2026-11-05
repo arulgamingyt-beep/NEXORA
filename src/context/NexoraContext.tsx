@@ -1168,9 +1168,149 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }, 3200);
   };
 
+  const playTactileChime = (
+    freq1: number,
+    freq2: number,
+    options: {
+      type?: OscillatorType;
+      filterStart?: number;
+      filterEnd?: number;
+      gain1?: number;
+      gain2?: number;
+      toneDelay?: number;
+      duration?: number;
+    } = {}
+  ) => {
+    if (!soundEnabled) return;
+    if (typeof window === 'undefined') return;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+
+      const t = ctx.currentTime;
+      const waveType: OscillatorType = options.type || 'sine';
+      const delay = options.toneDelay ?? 0.050;
+      const g1 = options.gain1 ?? 0.10;
+      const g2 = options.gain2 ?? 0.12;
+      const dur = options.duration ?? 0.16;
+
+      // Master Biquad Filter for warm acoustic smoothing (removes harsh digital buzz)
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      const fStart = options.filterStart ?? 1500;
+      filter.frequency.setValueAtTime(fStart, t);
+      if (options.filterEnd) {
+        filter.frequency.exponentialRampToValueAtTime(Math.max(options.filterEnd, 50), t + dur);
+      }
+      filter.connect(ctx.destination);
+
+      // Note 1 (First Chime Pulse)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = waveType;
+      // Subtle 5% pitch glide on attack creates the physical acoustic "droplet / tactile tap"
+      osc1.frequency.setValueAtTime(freq1 * 1.05, t);
+      osc1.frequency.exponentialRampToValueAtTime(freq1, t + 0.012);
+      osc1.connect(gain1);
+      gain1.connect(filter);
+
+      gain1.gain.setValueAtTime(0.0001, t);
+      gain1.gain.linearRampToValueAtTime(g1, t + 0.006); // 6ms click-free attack
+      gain1.gain.exponentialRampToValueAtTime(0.0001, t + delay); // decay before second note
+      osc1.start(t);
+      osc1.stop(t + delay + 0.01);
+
+      // Note 2 (Second Chime Pulse)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = waveType;
+      // Subtle pitch glide on attack for tactile body
+      osc2.frequency.setValueAtTime(freq2 * 1.04, t + delay);
+      osc2.frequency.exponentialRampToValueAtTime(freq2, t + delay + 0.012);
+      osc2.connect(gain2);
+      gain2.connect(filter);
+
+      gain2.gain.setValueAtTime(0.0001, t + delay);
+      gain2.gain.linearRampToValueAtTime(g2, t + delay + 0.006); // 6ms click-free attack
+      gain2.gain.exponentialRampToValueAtTime(0.0001, t + dur); // warm resonant fade
+      osc2.start(t + delay);
+      osc2.stop(t + dur + 0.01);
+
+      // Automatically clean up AudioContext after completion
+      setTimeout(() => {
+        try {
+          ctx.close();
+        } catch {}
+      }, Math.round((dur + 0.1) * 1000));
+    } catch {
+      // Browser audio restriction safeguard
+    }
+  };
+
   const playSoundEffect = (type: 'send' | 'receive' | 'join' | 'leave' | 'mute' | 'unmute' | 'deafen' | 'undeafen') => {
     if (!soundEnabled) return;
     if (typeof window === 'undefined') return;
+
+    if (type === 'mute') {
+      // Tactile downward chime (B4 -> F#4: 480Hz -> 360Hz) with acoustic lowpass softening
+      playTactileChime(480, 360, {
+        type: 'sine',
+        filterStart: 1500,
+        filterEnd: 950,
+        gain1: 0.10,
+        gain2: 0.12,
+        toneDelay: 0.050,
+        duration: 0.16,
+      });
+      return;
+    }
+
+    if (type === 'unmute') {
+      // Tactile bright upward chime (F#4 -> B4: 360Hz -> 480Hz) with acoustic opening
+      playTactileChime(360, 480, {
+        type: 'sine',
+        filterStart: 1200,
+        filterEnd: 2200,
+        gain1: 0.10,
+        gain2: 0.12,
+        toneDelay: 0.050,
+        duration: 0.16,
+      });
+      return;
+    }
+
+    if (type === 'deafen') {
+      // Resonant acoustic isolation seal (380Hz -> 210Hz) with dramatic lowpass cutoff
+      playTactileChime(380, 210, {
+        type: 'triangle',
+        filterStart: 1400,
+        filterEnd: 320,
+        gain1: 0.11,
+        gain2: 0.14,
+        toneDelay: 0.056,
+        duration: 0.19,
+      });
+      return;
+    }
+
+    if (type === 'undeafen') {
+      // Resonant acoustic unseal (210Hz -> 420Hz) with airy lowpass filter opening
+      playTactileChime(210, 420, {
+        type: 'triangle',
+        filterStart: 350,
+        filterEnd: 2600,
+        gain1: 0.11,
+        gain2: 0.14,
+        toneDelay: 0.056,
+        duration: 0.19,
+      });
+      return;
+    }
+
     try {
       // Audio synth via Web Audio API - zero external audio asset dependency
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -1182,83 +1322,58 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1800, ctx.currentTime);
+
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(filter);
+      filter.connect(ctx.destination);
 
       const t = ctx.currentTime;
 
       if (type === 'send') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(440, t);
-        osc.frequency.exponentialRampToValueAtTime(880, t + 0.08);
-        gain.gain.setValueAtTime(0.08, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-        osc.start(t);
-        osc.stop(t + 0.08);
-      } else if (type === 'receive') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(600, t);
-        osc.frequency.exponentialRampToValueAtTime(750, t + 0.12);
-        gain.gain.setValueAtTime(0.1, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-        osc.start(t);
-        osc.stop(t + 0.12);
-      } else if (type === 'join') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(320, t);
-        osc.frequency.exponentialRampToValueAtTime(640, t + 0.15);
-        gain.gain.setValueAtTime(0.12, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-        osc.start(t);
-        osc.stop(t + 0.15);
-      } else if (type === 'leave') {
+        // Soft bubble-pop transmission click
         osc.type = 'sine';
         osc.frequency.setValueAtTime(540, t);
-        osc.frequency.exponentialRampToValueAtTime(270, t + 0.12);
-        gain.gain.setValueAtTime(0.09, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.frequency.exponentialRampToValueAtTime(270, t + 0.07);
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.linearRampToValueAtTime(0.09, t + 0.004);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
         osc.start(t);
-        osc.stop(t + 0.12);
-      } else if (type === 'mute') {
-        // Discord-style crisp downward two-tone chirp (500Hz -> 330Hz)
+        osc.stop(t + 0.07);
+      } else if (type === 'receive') {
+        // Melodic reception notification chime
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(500, t);
-        osc.frequency.setValueAtTime(330, t + 0.05);
-        gain.gain.setValueAtTime(0.12, t);
-        gain.gain.setValueAtTime(0.12, t + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+        osc.frequency.setValueAtTime(580, t);
+        osc.frequency.exponentialRampToValueAtTime(760, t + 0.11);
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.linearRampToValueAtTime(0.10, t + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
         osc.start(t);
-        osc.stop(t + 0.13);
-      } else if (type === 'unmute') {
-        // Discord-style bright upward two-tone chirp (330Hz -> 520Hz)
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(330, t);
-        osc.frequency.setValueAtTime(520, t + 0.05);
-        gain.gain.setValueAtTime(0.12, t);
-        gain.gain.setValueAtTime(0.12, t + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
-        osc.start(t);
-        osc.stop(t + 0.13);
-      } else if (type === 'deafen') {
-        // Discord-style resonant downward chime (420Hz -> 210Hz)
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(420, t);
-        osc.frequency.setValueAtTime(210, t + 0.06);
-        gain.gain.setValueAtTime(0.14, t);
-        gain.gain.setValueAtTime(0.14, t + 0.06);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
-        osc.start(t);
-        osc.stop(t + 0.16);
-      } else if (type === 'undeafen') {
-        // Discord-style resonant upward chime (210Hz -> 420Hz)
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(210, t);
-        osc.frequency.setValueAtTime(420, t + 0.06);
-        gain.gain.setValueAtTime(0.14, t);
-        gain.gain.setValueAtTime(0.14, t + 0.06);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
-        osc.start(t);
-        osc.stop(t + 0.16);
+        osc.stop(t + 0.11);
+      } else if (type === 'join') {
+        playTactileChime(320, 560, {
+          type: 'sine',
+          filterStart: 1200,
+          filterEnd: 2400,
+          gain1: 0.10,
+          gain2: 0.13,
+          toneDelay: 0.060,
+          duration: 0.18,
+        });
+        return;
+      } else if (type === 'leave') {
+        playTactileChime(540, 270, {
+          type: 'sine',
+          filterStart: 1800,
+          filterEnd: 800,
+          gain1: 0.09,
+          gain2: 0.11,
+          toneDelay: 0.055,
+          duration: 0.16,
+        });
+        return;
       }
 
       // Automatically clean up AudioContext after sound finishes
