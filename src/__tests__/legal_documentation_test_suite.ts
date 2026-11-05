@@ -69,11 +69,12 @@ async function runLegalSuite() {
     'Version watermark displays v1.0 DRAFT'
   );
 
-  // Test 2: Legal Counsel Disclaimer Banner
+  // Test 2: Legal Counsel Disclaimer Banner (Indian Technology / Privacy Law Review)
   console.log('\n[2/8] Verifying Legal Counsel Review Disclaimer Notice');
   assert(
-    legalViewerContent.includes('OPERATIONAL NOTICE: These documents are engineering beta drafts. Formal legal review by licensed counsel is required prior to commercial release.'),
-    'Prominent disclaimer banner notifies users that documents are engineering drafts needing licensed counsel review'
+    legalViewerContent.includes('OPERATIONAL NOTICE: These pages are engineering beta drafts and do not constitute proof of legal compliance.') &&
+    legalViewerContent.includes('Indian technology/privacy lawyer review'),
+    'Prominent disclaimer banner notifies users that pages are engineering drafts requiring Indian technology/privacy lawyer review prior to public release'
   );
 
   // Test 3: Privacy Policy Required Content

@@ -338,11 +338,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <button
                 type="button"
                 onClick={() => switchMode('login')}
-                className={`py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold tracking-wide transition-all duration-200 flex items-center justify-center gap-2 ${
-                  mode === 'login'
+                className={`py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold tracking-wide transition-all duration-200 flex items-center justify-center gap-2 ${mode === 'login'
                     ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/30'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                }`}
+                  }`}
               >
                 <Terminal className="w-4 h-4" />
                 <span>Access Node</span>
@@ -351,11 +350,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <button
                 type="button"
                 onClick={() => switchMode('register')}
-                className={`py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold tracking-wide transition-all duration-200 flex items-center justify-center gap-2 ${
-                  mode === 'register'
+                className={`py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold tracking-wide transition-all duration-200 flex items-center justify-center gap-2 ${mode === 'register'
                     ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/30'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                }`}
+                  }`}
               >
                 <Radio className="w-4 h-4" />
                 <span>Register Callsign</span>
@@ -702,11 +700,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                             setSelectedAvatar(av.url);
                             setCustomAvatarUrl('');
                           }}
-                          className={`w-10 h-10 rounded-xl overflow-hidden shrink-0 transition p-0.5 cursor-pointer ${
-                            isSelected
+                          className={`w-10 h-10 rounded-xl overflow-hidden shrink-0 transition p-0.5 cursor-pointer ${isSelected
                               ? 'ring-2 ring-violet-400 scale-105 shadow-md shadow-violet-600/50'
                               : 'opacity-60 hover:opacity-100 hover:scale-105'
-                          }`}
+                            }`}
                           title={av.name}
                         >
                           <img

@@ -66,7 +66,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
         <div className="px-5 py-2.5 bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-2.5 text-xs text-amber-300 font-mono shrink-0">
           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
           <span>
-            OPERATIONAL NOTICE: These documents are engineering beta drafts. Formal legal review by licensed counsel is required prior to commercial release.
+            OPERATIONAL NOTICE: These pages are engineering beta drafts and do not constitute proof of legal compliance. Have an Indian technology/privacy lawyer review all policies under applicable laws (including DPDP Act 2023 & IT Act 2000) prior to launching publicly.
           </span>
         </div>
 
@@ -196,12 +196,13 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
               </div>
 
               <div className="p-4 rounded-2xl bg-[#090a14] border border-white/5 space-y-1">
-                <h4 className="font-bold text-white text-sm">8. Privacy Contact Point</h4>
-                <p className="text-slate-300 text-xs">
-                  For privacy queries or data subject requests, contact NEXORA Data Protection at:{' '}
+                <h4 className="font-bold text-white text-sm">8. Privacy Contact Point & Grievance Redressal (DPDP Act)</h4>
+                <p className="text-slate-300 text-xs leading-relaxed">
+                  For privacy queries, Data Principal rights under India's Digital Personal Data Protection Act (DPDP Act 2023), or grievance redressal, contact the designated Grievance Officer at:{' '}
                   <a href="mailto:privacy@nexora.tech" className="text-violet-400 hover:underline font-mono">
                     privacy@nexora.tech
                   </a>
+                  . Note: Formal appointment and escalation timelines are subject to legal counsel review.
                 </p>
               </div>
             </div>
@@ -275,12 +276,13 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
               </div>
 
               <div className="p-4 rounded-2xl bg-[#090a14] border border-white/5 space-y-1">
-                <h4 className="font-bold text-white text-sm">7. Legal Point of Contact</h4>
-                <p className="text-slate-300 text-xs">
+                <h4 className="font-bold text-white text-sm">7. Legal Point of Contact & Jurisdiction Review Notice</h4>
+                <p className="text-slate-300 text-xs leading-relaxed">
                   Direct legal notices and inquiries to:{' '}
                   <a href="mailto:legal@nexora.tech" className="text-violet-400 hover:underline font-mono">
                     legal@nexora.tech
                   </a>
+                  . Governing law and arbitration clauses are engineering placeholders subject to formal structuring by Indian legal counsel.
                 </p>
               </div>
             </div>
@@ -437,3 +439,4 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
     </div>
   );
 };
+
