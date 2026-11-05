@@ -173,3 +173,4 @@ export const VoiceRoomStage: React.FC = () => {
     </div>
   );
 };
+
