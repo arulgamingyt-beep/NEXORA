@@ -70,6 +70,7 @@ import {
   resetVaultAccountPassword,
   getOrCreateDemoAccount,
 } from '../utils/authVault';
+import { webrtcVoiceService } from '../utils/webrtcVoice';
 
 export type ModalType =
   | 'user_settings'
@@ -1919,8 +1920,38 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     showToast(`Permanently banned ${targetUser?.displayName || 'member'}`, 'warning');
   };
 
-  const connectVoice = (channelId: string, channelName: string, communityId: string) => {
+  const connectVoice = async (channelId: string, channelName: string, communityId: string) => {
     playSoundEffect('join');
+
+    // Initialize real WebRTC peer mesh callbacks
+    webrtcVoiceService.init({
+      onUsersChanged: (users) => {
+        setVoiceState((prev) => ({
+          ...prev,
+          activeUsers: users.map((u) => ({
+            userId: u.userId,
+            displayName: u.displayName,
+            avatar: u.avatar,
+            isSpeaking: Boolean(u.isSpeaking),
+          })),
+        }));
+      },
+      onSpeakingChanged: (isSpeaking) => {
+        setVoiceState((prev) => ({
+          ...prev,
+          isSpeaking,
+          activeUsers: prev.activeUsers.map((u) =>
+            u.userId === currentUser.id ? { ...u, isSpeaking } : u
+          ),
+        }));
+      },
+      onConnectionStateChanged: (state) => {
+        if (state === 'disconnected') {
+          setVoiceState((prev) => ({ ...prev, isConnected: false }));
+        }
+      },
+    });
+
     setVoiceState({
       isConnected: true,
       channelId,
@@ -1936,19 +1967,25 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           avatar: currentUser.avatar,
           isSpeaking: false,
         },
-        {
-          userId: 'user_sophia',
-          displayName: 'Sophia Chen',
-          avatar: MOCK_USERS.user_sophia.avatar,
-          isSpeaking: true,
-        },
       ],
     });
-    showToast(`Connected to Voice: ${channelName} (RTC 48kHz HD)`, 'success');
+
+    try {
+      await webrtcVoiceService.joinChannel(channelId, {
+        id: currentUser.id,
+        displayName: currentUser.displayName,
+        avatar: currentUser.avatar,
+      });
+    } catch (err) {
+      console.warn('[WebRTC Voice] joinChannel notice:', err);
+    }
+
+    showToast(`Connected to Voice: ${channelName} (WebRTC 48kHz Mesh)`, 'success');
   };
 
   const disconnectVoice = () => {
     playSoundEffect('leave');
+    webrtcVoiceService.leaveChannel();
     setVoiceState({
       isConnected: false,
       channelId: null,
@@ -1965,6 +2002,7 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const toggleVoiceMute = () => {
     setVoiceState((prev) => {
       const nextMute = !prev.isMuted;
+      webrtcVoiceService.setMute(nextMute);
       showToast(nextMute ? 'Microphone Muted' : 'Microphone Unmuted', 'info');
       return { ...prev, isMuted: nextMute };
     });
@@ -1973,6 +2011,7 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const toggleVoiceDeafen = () => {
     setVoiceState((prev) => {
       const nextDeafen = !prev.isDeafened;
+      webrtcVoiceService.setDeafen(nextDeafen);
       showToast(nextDeafen ? 'Audio Deafen On' : 'Audio Deafen Off', 'info');
       return { ...prev, isDeafened: nextDeafen, isMuted: nextDeafen ? true : prev.isMuted };
     });
