@@ -18,6 +18,9 @@ import {
   Friendship,
   BlockedUser,
   FriendsTab,
+  CallSession,
+  CallType,
+  CallParticipant,
 } from '../types';
 import {
   CURRENT_USER,
@@ -71,6 +74,7 @@ import {
   getOrCreateDemoAccount,
 } from '../utils/authVault';
 import { webrtcVoiceService } from '../utils/webrtcVoice';
+import { callSignalingService } from '../services/callSignaling';
 
 export type ModalType =
   | 'user_settings'
@@ -200,6 +204,17 @@ interface NexoraContextType {
   toggleMobileSidebar: () => void;
   toggleMobileChannel: () => void;
   getCurrentUserRoleInActiveCommunity: () => UserRole;
+
+  // Real-Time Calling & Video Mesh
+  incomingCall: CallSession | null;
+  activeCall: CallSession | null;
+  startCall: (targetUserId: string, type: CallType) => Promise<void>;
+  startGroupCall: (conversationId: string, type: CallType) => Promise<void>;
+  acceptIncomingCall: () => Promise<void>;
+  declineIncomingCall: () => Promise<void>;
+  endActiveCall: () => Promise<void>;
+  toggleCamera: () => Promise<void>;
+  toggleScreenShare: () => Promise<void>;
 }
 
 const NexoraContext = createContext<NexoraContextType | undefined>(undefined);
@@ -287,8 +302,13 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     isMuted: false,
     isDeafened: false,
     isSpeaking: false,
+    isCameraOn: false,
+    isScreenSharing: false,
     activeUsers: [],
   });
+
+  const [incomingCall, setIncomingCall] = useState<CallSession | null>(null);
+  const [activeCall, setActiveCall] = useState<CallSession | null>(null);
 
   const [isMemberListOpen, setIsMemberListOpen] = useState(true);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -2018,6 +2038,252 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // ==========================================
+  // REAL-TIME CALLING & VIDEO MESH LIFECYCLE
+  // ==========================================
+
+  // Listen for incoming call notifications
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const unsub = callSignalingService.listenToIncomingCalls(currentUser.id, (call) => {
+      setIncomingCall(call);
+    });
+    return () => unsub();
+  }, [currentUser?.id]);
+
+  // Listen for active call status updates
+  useEffect(() => {
+    if (!activeCall) return;
+    const unsub = callSignalingService.listenToCallSession(activeCall.id, (updatedCall) => {
+      if (!updatedCall || updatedCall.status === 'ended' || updatedCall.status === 'declined') {
+        endActiveCall();
+      }
+    });
+    return () => unsub();
+  }, [activeCall?.id]);
+
+  const startCall = async (targetUserId: string, type: CallType) => {
+    if (isUserBlocked(targetUserId) || isUserBlockedBy(targetUserId)) {
+      showToast('Cannot initiate transmission. Operative is blocked.', 'warning');
+      return;
+    }
+
+    const targetUser = allUsers[targetUserId] || MOCK_USERS[targetUserId];
+    if (!targetUser) return;
+
+    showToast(`Calling ${targetUser.displayName}...`, 'info');
+    webrtcVoiceService.startRingtone('outgoing');
+
+    const newCall = await callSignalingService.initiateCall({
+      type,
+      scope: 'direct',
+      targetId: targetUserId,
+      targetName: targetUser.displayName,
+      callerId: currentUser.id,
+      callerName: currentUser.displayName,
+      callerAvatar: currentUser.avatar,
+      participantIds: [currentUser.id, targetUserId],
+    });
+
+    setActiveCall(newCall);
+
+    await webrtcVoiceService.joinChannel(
+      newCall.id,
+      {
+        id: currentUser.id,
+        displayName: currentUser.displayName,
+        avatar: currentUser.avatar,
+      },
+      { video: type === 'video' }
+    );
+
+    setVoiceState({
+      isConnected: true,
+      channelId: newCall.id,
+      channelName: targetUser.displayName,
+      communityId: null,
+      isMuted: false,
+      isDeafened: false,
+      isSpeaking: false,
+      isCameraOn: type === 'video',
+      isScreenSharing: false,
+      activeUsers: [
+        {
+          userId: currentUser.id,
+          displayName: currentUser.displayName,
+          avatar: currentUser.avatar,
+          isSpeaking: false,
+          isCameraOn: type === 'video',
+          isScreenSharing: false,
+        },
+      ],
+    });
+  };
+
+  const startGroupCall = async (conversationId: string, type: CallType) => {
+    const group = dmConversations.find((d) => d.id === conversationId);
+    if (!group) return;
+
+    const participantIds = group.participants.map((p) => p.id);
+    const newCall = await callSignalingService.initiateCall({
+      type,
+      scope: 'group',
+      targetId: conversationId,
+      targetName: group.name || 'Group Transmission',
+      callerId: currentUser.id,
+      callerName: currentUser.displayName,
+      callerAvatar: currentUser.avatar,
+      participantIds,
+    });
+
+    setActiveCall(newCall);
+
+    await webrtcVoiceService.joinChannel(
+      newCall.id,
+      {
+        id: currentUser.id,
+        displayName: currentUser.displayName,
+        avatar: currentUser.avatar,
+      },
+      { video: type === 'video' }
+    );
+
+    setVoiceState({
+      isConnected: true,
+      channelId: newCall.id,
+      channelName: group.name || 'Group Call',
+      communityId: null,
+      isMuted: false,
+      isDeafened: false,
+      isSpeaking: false,
+      isCameraOn: type === 'video',
+      isScreenSharing: false,
+      activeUsers: [
+        {
+          userId: currentUser.id,
+          displayName: currentUser.displayName,
+          avatar: currentUser.avatar,
+          isSpeaking: false,
+          isCameraOn: type === 'video',
+          isScreenSharing: false,
+        },
+      ],
+    });
+  };
+
+  const acceptIncomingCall = async () => {
+    if (!incomingCall) return;
+    webrtcVoiceService.stopRingtone();
+    const callToAccept = incomingCall;
+    setIncomingCall(null);
+    setActiveCall(callToAccept);
+
+    await callSignalingService.acceptCall(callToAccept.id, currentUser.id);
+
+    await webrtcVoiceService.joinChannel(
+      callToAccept.id,
+      {
+        id: currentUser.id,
+        displayName: currentUser.displayName,
+        avatar: currentUser.avatar,
+      },
+      { video: callToAccept.type === 'video' }
+    );
+
+    setVoiceState({
+      isConnected: true,
+      channelId: callToAccept.id,
+      channelName: callToAccept.callerName,
+      communityId: null,
+      isMuted: false,
+      isDeafened: false,
+      isSpeaking: false,
+      isCameraOn: callToAccept.type === 'video',
+      isScreenSharing: false,
+      activeUsers: [
+        {
+          userId: currentUser.id,
+          displayName: currentUser.displayName,
+          avatar: currentUser.avatar,
+          isSpeaking: false,
+          isCameraOn: callToAccept.type === 'video',
+          isScreenSharing: false,
+        },
+      ],
+    });
+
+    showToast(`Connected to ${callToAccept.type} call with ${callToAccept.callerName}`, 'success');
+  };
+
+  const declineIncomingCall = async () => {
+    if (!incomingCall) return;
+    webrtcVoiceService.stopRingtone();
+    const callToDecline = incomingCall;
+    setIncomingCall(null);
+    await callSignalingService.declineCall(callToDecline.id, currentUser.id);
+    showToast(`Call from ${callToDecline.callerName} declined`, 'info');
+  };
+
+  const endActiveCall = async () => {
+    webrtcVoiceService.stopRingtone();
+    if (activeCall) {
+      await callSignalingService.endCall(activeCall.id);
+      setActiveCall(null);
+    }
+    webrtcVoiceService.leaveChannel();
+    setVoiceState({
+      isConnected: false,
+      channelId: null,
+      communityId: null,
+      channelName: null,
+      isMuted: false,
+      isDeafened: false,
+      isSpeaking: false,
+      isCameraOn: false,
+      isScreenSharing: false,
+      activeUsers: [],
+    });
+    showToast('Call ended', 'info');
+  };
+
+  const toggleCamera = async () => {
+    const isNowOn = await webrtcVoiceService.toggleCamera();
+    setVoiceState((prev) => ({
+      ...prev,
+      isCameraOn: isNowOn,
+      activeUsers: prev.activeUsers.map((u) =>
+        u.userId === currentUser.id ? { ...u, isCameraOn: isNowOn } : u
+      ),
+    }));
+    showToast(isNowOn ? 'Camera enabled' : 'Camera disabled', 'info');
+  };
+
+  const toggleScreenShare = async () => {
+    if (voiceState.isScreenSharing) {
+      await webrtcVoiceService.stopScreenShare();
+      setVoiceState((prev) => ({
+        ...prev,
+        isScreenSharing: false,
+        activeUsers: prev.activeUsers.map((u) =>
+          u.userId === currentUser.id ? { ...u, isScreenSharing: false } : u
+        ),
+      }));
+      showToast('Screen sharing stopped', 'info');
+    } else {
+      const stream = await webrtcVoiceService.startScreenShare();
+      if (stream) {
+        setVoiceState((prev) => ({
+          ...prev,
+          isScreenSharing: true,
+          activeUsers: prev.activeUsers.map((u) =>
+            u.userId === currentUser.id ? { ...u, isScreenSharing: true } : u
+          ),
+        }));
+        showToast('Screen sharing started', 'success');
+      }
+    }
+  };
+
+  // ==========================================
   // MODULE 1 & 5: FRIEND & BLOCKING SYSTEM
   // ==========================================
 
@@ -2968,6 +3234,17 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         toggleMobileSidebar,
         toggleMobileChannel,
         getCurrentUserRoleInActiveCommunity,
+
+        // Real-Time Calling & Video Mesh
+        incomingCall,
+        activeCall,
+        startCall,
+        startGroupCall,
+        acceptIncomingCall,
+        declineIncomingCall,
+        endActiveCall,
+        toggleCamera,
+        toggleScreenShare,
       }}
     >
       {children}

@@ -15,6 +15,8 @@ import {
   Ban,
   Radio,
   Flame,
+  Phone,
+  Video,
 } from 'lucide-react';
 import { FriendsTab, User } from '../../types';
 
@@ -34,6 +36,7 @@ export const FriendsHub: React.FC = () => {
     blockUser,
     unblockUser,
     openDMWithUser,
+    startCall,
     allUsers,
     setSelectedUserForProfile,
   } = useNexora();
@@ -582,6 +585,22 @@ export const FriendsHub: React.FC = () => {
 
                       {/* Action Buttons */}
                       <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => startCall(f.friend.id, 'voice')}
+                          title="Start Voice Call"
+                          className="p-2 rounded-xl bg-[#1d2038] hover:bg-emerald-600 text-emerald-400 hover:text-white transition cursor-pointer shadow-sm"
+                        >
+                          <Phone className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => startCall(f.friend.id, 'video')}
+                          title="Start Video Call"
+                          className="p-2 rounded-xl bg-[#1d2038] hover:bg-violet-600 text-violet-400 hover:text-white transition cursor-pointer shadow-sm"
+                        >
+                          <Video className="w-4 h-4" />
+                        </button>
+
                         <button
                           onClick={() => openDMWithUser(f.friend.id)}
                           title="Transmit Direct Message"

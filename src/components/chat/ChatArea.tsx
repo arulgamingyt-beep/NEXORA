@@ -3,6 +3,7 @@ import { useNexora } from '../../context/NexoraContext';
 import { MessageItem } from './MessageItem';
 import { MessageComposer } from './MessageComposer';
 import { FriendsHub } from '../friends/FriendsHub';
+import { VoiceRoomStage } from './VoiceRoomStage';
 import {
   Hash,
   Volume2,
@@ -18,6 +19,8 @@ import {
   Radio,
   LogOut,
   Ban,
+  Phone,
+  Video,
 } from 'lucide-react';
 
 export const ChatArea: React.FC = () => {
@@ -41,6 +44,8 @@ export const ChatArea: React.FC = () => {
     isUserBlocked,
     unblockUser,
     typingUsers,
+    startCall,
+    startGroupCall,
   } = useNexora();
 
   const [showPinnedDrawer, setShowPinnedDrawer] = useState(false);
@@ -56,6 +61,11 @@ export const ChatArea: React.FC = () => {
   // If in Home / DMs mode without an active conversation, show the Friends Hub
   if (!activeCommunity && !activeDM) {
     return <FriendsHub />;
+  }
+
+  // If in Community mode with a Voice Channel active, render the Voice Room Stage
+  if (activeCommunity && activeChannel?.type === 'voice') {
+    return <VoiceRoomStage />;
   }
 
   const otherDMUser = activeDM
@@ -185,6 +195,39 @@ export const ChatArea: React.FC = () => {
 
         {/* Action HUD */}
         <div className="flex items-center gap-1.5 text-slate-400">
+          {/* Direct & Group Call Quick-Actions */}
+          {!activeCommunity && (
+            <>
+              <button
+                onClick={() => {
+                  if (isGroupDM) {
+                    startGroupCall(activeDM!.id, 'voice');
+                  } else if (otherDMUser) {
+                    startCall(otherDMUser.id, 'voice');
+                  }
+                }}
+                className="p-2 rounded-xl hover:bg-white/5 hover:text-emerald-400 text-slate-300 transition cursor-pointer"
+                title={isGroupDM ? 'Start Group Voice Call' : `Start Voice Call with @${otherDMUser?.displayName}`}
+              >
+                <Phone className="w-4 h-4 text-emerald-400" />
+              </button>
+
+              <button
+                onClick={() => {
+                  if (isGroupDM) {
+                    startGroupCall(activeDM!.id, 'video');
+                  } else if (otherDMUser) {
+                    startCall(otherDMUser.id, 'video');
+                  }
+                }}
+                className="p-2 rounded-xl hover:bg-white/5 hover:text-violet-400 text-slate-300 transition cursor-pointer"
+                title={isGroupDM ? 'Start Group Video Call' : `Start Video Call with @${otherDMUser?.displayName}`}
+              >
+                <Video className="w-4 h-4 text-violet-400" />
+              </button>
+            </>
+          )}
+
           {/* Group DM Leave Button */}
           {isGroupDM && (
             <button

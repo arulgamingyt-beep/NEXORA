@@ -1,12 +1,14 @@
 /**
- * NEXORA WEBRTC REAL-TIME VOICE & AUDIO STREAMING MESH
+ * NEXORA WEBRTC REAL-TIME VOICE, VIDEO & MEDIA MESH ENGINE
  * 
- * Implements full peer-to-peer audio mesh:
+ * Implements complete peer-to-peer real-time communication:
+ * - Audio & Video MediaStream management (Microphone, Camera, Screen Sharing)
  * - Free-tier public Google STUN servers (₹0 / $0 Cost)
- * - Dual-layer signaling: BroadcastChannel + localStorage + Firestore signaling fallback
- * - AudioContext AnalyserNode for real-time speech amplitude & green ring detection
- * - MediaStream microphone capture with zero-crash Web Audio oscillator fallback
- * - Automated end-to-end diagnostic & self-testing harness
+ * - Dual-layer signaling (Cloud Firestore + BroadcastChannel + localStorage)
+ * - Web Audio API AnalyserNode for real-time speech amplitude & green ring detection
+ * - Web Audio synthesized ringtones (Incoming & Outgoing, zero external asset dependency)
+ * - Automatic track replacement (Screen share <-> Camera)
+ * - Hardware mute/camera/deafen track controls
  */
 
 export interface VoicePeerUser {
@@ -16,6 +18,8 @@ export interface VoicePeerUser {
   isSpeaking: boolean;
   isMuted?: boolean;
   isDeafened?: boolean;
+  isCameraOn?: boolean;
+  isScreenSharing?: boolean;
 }
 
 export interface SignalingPacket {
@@ -41,10 +45,15 @@ export class WebRTCVoiceEngine {
   private channelId: string | null = null;
   private currentUserId: string | null = null;
   private userProfile: VoicePeerUser | null = null;
-  private localStream: MediaStream | null = null;
+
+  public localStream: MediaStream | null = null;
+  public localScreenStream: MediaStream | null = null;
+  public remoteStreams: Map<string, MediaStream> = new Map();
+
   private audioContext: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private animFrameId: number | null = null;
+  private ringtoneInterval: any = null;
 
   private peerConnections: Map<string, RTCPeerConnection> = new Map();
   private activeUsers: Map<string, VoicePeerUser> = new Map();
@@ -53,32 +62,40 @@ export class WebRTCVoiceEngine {
   public isMuted: boolean = false;
   public isDeafened: boolean = false;
   public isSpeaking: boolean = false;
+  public isCameraOn: boolean = false;
+  public isScreenSharing: boolean = false;
 
   private onUsersChanged?: (users: VoicePeerUser[]) => void;
   private onSpeakingChanged?: (isSpeaking: boolean) => void;
   private onConnectionStateChanged?: (state: string) => void;
+  private onRemoteStreamChanged?: (userId: string, stream: MediaStream | null) => void;
+  private onLocalStreamChanged?: (stream: MediaStream | null) => void;
 
   /**
-   * Initializes the WebRTC engine callbacks
+   * Initializes engine callbacks
    */
   public init(callbacks: {
     onUsersChanged?: (users: VoicePeerUser[]) => void;
     onSpeakingChanged?: (isSpeaking: boolean) => void;
     onConnectionStateChanged?: (state: string) => void;
+    onRemoteStreamChanged?: (userId: string, stream: MediaStream | null) => void;
+    onLocalStreamChanged?: (stream: MediaStream | null) => void;
   }) {
     this.onUsersChanged = callbacks.onUsersChanged;
     this.onSpeakingChanged = callbacks.onSpeakingChanged;
     this.onConnectionStateChanged = callbacks.onConnectionStateChanged;
+    this.onRemoteStreamChanged = callbacks.onRemoteStreamChanged;
+    this.onLocalStreamChanged = callbacks.onLocalStreamChanged;
   }
 
   /**
-   * Captures the operative's microphone or creates a safe synthesized audio stream
-   * if physical mic permissions are denied or in headless/sandbox modes.
+   * Captures microphone audio stream or creates a safe synthesized audio fallback
    */
   public async getLocalAudioStream(): Promise<MediaStream> {
-    if (this.localStream) return this.localStream;
+    if (this.localStream && this.localStream.getAudioTracks().length > 0) {
+      return this.localStream;
+    }
 
-    // Check if browser mediaDevices is available
     if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -89,15 +106,22 @@ export class WebRTCVoiceEngine {
           },
           video: false,
         });
-        this.localStream = stream;
-        this.setupSpeechDetector(stream);
-        return stream;
+
+        if (this.localStream) {
+          stream.getAudioTracks().forEach((track) => this.localStream!.addTrack(track));
+        } else {
+          this.localStream = stream;
+        }
+
+        this.setupSpeechDetector(this.localStream);
+        this.onLocalStreamChanged?.(this.localStream);
+        return this.localStream;
       } catch (err) {
-        console.warn('[WebRTC] Microphone access denied or not present. Initializing safe synthesized audio pipe:', err);
+        console.warn('[WebRTC] Microphone access denied or absent. Initializing safe synthesized fallback:', err);
       }
     }
 
-    // Safe synthesized audio track (guarantees zero connection crash)
+    // Synthesized Audio Oscillator fallback (prevents connection crashes)
     if (typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
       try {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -109,16 +133,198 @@ export class WebRTCVoiceEngine {
         osc.connect(gain);
         gain.connect(dst);
         osc.start();
-        this.localStream = dst.stream;
-        return dst.stream;
+
+        if (this.localStream) {
+          dst.stream.getAudioTracks().forEach((t) => this.localStream!.addTrack(t));
+        } else {
+          this.localStream = dst.stream;
+        }
+        this.onLocalStreamChanged?.(this.localStream);
+        return this.localStream;
       } catch (e) {
         console.warn('[WebRTC] AudioContext fallback initialization:', e);
       }
     }
 
-    // Fallback minimal MediaStream
-    this.localStream = new MediaStream();
+    if (!this.localStream) {
+      this.localStream = new MediaStream();
+    }
+    this.onLocalStreamChanged?.(this.localStream);
     return this.localStream;
+  }
+
+  /**
+   * Captures or toggles local camera video stream
+   */
+  public async startVideo(): Promise<MediaStream> {
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+      try {
+        const videoStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user',
+          },
+          audio: false,
+        });
+
+        const newVideoTrack = videoStream.getVideoTracks()[0];
+        if (newVideoTrack) {
+          // Remove old video track if exists
+          if (this.localStream) {
+            this.localStream.getVideoTracks().forEach((t) => {
+              t.stop();
+              this.localStream!.removeTrack(t);
+            });
+            this.localStream.addTrack(newVideoTrack);
+          } else {
+            this.localStream = videoStream;
+          }
+
+          this.isCameraOn = true;
+          this.replaceTrackOnPeers('video', newVideoTrack);
+          this.onLocalStreamChanged?.(this.localStream);
+          this.broadcastState();
+          return this.localStream;
+        }
+      } catch (err) {
+        console.warn('[WebRTC] Camera access denied or not present:', err);
+      }
+    }
+
+    // Fallback minimal video track (transparent canvas stream)
+    if (typeof document !== 'undefined') {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 480;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#101222';
+          ctx.fillRect(0, 0, 640, 480);
+        }
+        const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(10) : new MediaStream();
+        const canvasTrack = canvasStream.getVideoTracks()[0];
+        if (canvasTrack) {
+          if (this.localStream) {
+            this.localStream.addTrack(canvasTrack);
+          } else {
+            this.localStream = canvasStream;
+          }
+          this.isCameraOn = true;
+          this.replaceTrackOnPeers('video', canvasTrack);
+        }
+      } catch {}
+    }
+
+    if (this.localStream && this.localStream.getVideoTracks().length > 0) {
+      this.isCameraOn = true;
+    }
+
+    this.onLocalStreamChanged?.(this.localStream);
+    this.broadcastState();
+    return this.localStream || new MediaStream();
+  }
+
+  /**
+   * Toggles camera on/off
+   */
+  public async toggleCamera(forceState?: boolean): Promise<boolean> {
+    const nextState = forceState !== undefined ? forceState : !this.isCameraOn;
+
+    if (nextState) {
+      await this.startVideo();
+    } else {
+      if (this.localStream) {
+        this.localStream.getVideoTracks().forEach((track) => {
+          track.enabled = false;
+          track.stop();
+          this.localStream!.removeTrack(track);
+        });
+      }
+      this.isCameraOn = false;
+      this.broadcastState();
+      this.onLocalStreamChanged?.(this.localStream);
+    }
+
+    return this.isCameraOn;
+  }
+
+  /**
+   * Starts screen sharing via getDisplayMedia
+   */
+  public async startScreenShare(): Promise<MediaStream | null> {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) {
+      console.warn('[WebRTC] Screen sharing not supported in this environment.');
+      return null;
+    }
+
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false,
+      });
+
+      const screenTrack = screenStream.getVideoTracks()[0];
+      if (!screenTrack) return null;
+
+      this.localScreenStream = screenStream;
+      this.isScreenSharing = true;
+
+      // Replace video track on all peer senders
+      this.replaceTrackOnPeers('video', screenTrack);
+
+      // Restore camera when user clicks browser native "Stop Sharing" button
+      screenTrack.onended = () => {
+        this.stopScreenShare();
+      };
+
+      this.broadcastState();
+      return screenStream;
+    } catch (err) {
+      console.warn('[WebRTC] Screen sharing permission cancelled or denied:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Stops screen sharing and restores camera video if camera was active
+   */
+  public async stopScreenShare(): Promise<void> {
+    if (this.localScreenStream) {
+      this.localScreenStream.getTracks().forEach((t) => t.stop());
+      this.localScreenStream = null;
+    }
+
+    this.isScreenSharing = false;
+
+    // Restore camera if camera is supposed to be on
+    if (this.isCameraOn) {
+      await this.startVideo();
+    } else if (this.localStream) {
+      const videoTrack = this.localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        this.replaceTrackOnPeers('video', videoTrack);
+      }
+    }
+
+    this.broadcastState();
+  }
+
+  /**
+   * Replaces an active track across all peer connections seamlessly
+   */
+  public replaceTrackOnPeers(kind: 'audio' | 'video', newTrack: MediaStreamTrack) {
+    this.peerConnections.forEach((pc) => {
+      const sender = pc.getSenders().find((s) => s.track?.kind === kind);
+      if (sender) {
+        sender.replaceTrack(newTrack).catch((err) => {
+          console.warn(`[WebRTC] replaceTrack (${kind}) error:`, err);
+        });
+      } else {
+        pc.addTrack(newTrack, this.localStream || new MediaStream());
+      }
+    });
   }
 
   /**
@@ -129,7 +335,9 @@ export class WebRTCVoiceEngine {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
-      this.audioContext = new AudioCtx();
+      if (!this.audioContext || this.audioContext.state === 'closed') {
+        this.audioContext = new AudioCtx();
+      }
       const source = this.audioContext.createMediaStreamSource(stream);
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 256;
@@ -154,7 +362,7 @@ export class WebRTCVoiceEngine {
           sum += dataArray[i];
         }
         const average = sum / bufferLength;
-        const nowSpeaking = average > 18; // Speaking amplitude threshold
+        const nowSpeaking = average > 18; // Speaking threshold
 
         if (nowSpeaking !== this.isSpeaking) {
           this.isSpeaking = nowSpeaking;
@@ -172,11 +380,12 @@ export class WebRTCVoiceEngine {
   }
 
   /**
-   * Joins a voice frequency channel and broadcasts discovery packet
+   * Joins a voice/video channel and broadcasts discovery packet
    */
   public async joinChannel(
     channelId: string,
-    user: { id: string; displayName: string; avatar: string }
+    user: { id: string; displayName: string; avatar: string },
+    options: { video?: boolean } = {}
   ): Promise<boolean> {
     this.channelId = channelId;
     this.currentUserId = user.id;
@@ -187,16 +396,21 @@ export class WebRTCVoiceEngine {
       isSpeaking: false,
       isMuted: this.isMuted,
       isDeafened: this.isDeafened,
+      isCameraOn: this.isCameraOn,
+      isScreenSharing: this.isScreenSharing,
     };
 
-    // Add self to active users
     this.activeUsers.set(user.id, this.userProfile);
     this.notifyUsersChanged();
 
-    // Prepare local audio stream
+    // Prepare audio stream
     await this.getLocalAudioStream();
 
-    // Initialize cross-tab / local signaling channel
+    // If video requested, prepare video stream
+    if (options.video) {
+      await this.startVideo();
+    }
+
     this.setupSignaling();
 
     // Broadcast join announcement
@@ -222,7 +436,7 @@ export class WebRTCVoiceEngine {
           this.handleSignalingPacket(event.data);
         };
       } catch (err) {
-        console.warn('[WebRTC] BroadcastChannel unavailable, using storage signaling:', err);
+        console.warn('[WebRTC] BroadcastChannel error:', err);
       }
     }
 
@@ -262,7 +476,7 @@ export class WebRTCVoiceEngine {
    */
   public async handleSignalingPacket(packet: SignalingPacket) {
     if (!this.channelId || packet.channelId !== this.channelId) return;
-    if (packet.fromUserId === this.currentUserId) return; // Ignore own echoes
+    if (packet.fromUserId === this.currentUserId) return;
 
     switch (packet.type) {
       case 'peer-join': {
@@ -270,7 +484,6 @@ export class WebRTCVoiceEngine {
           this.activeUsers.set(packet.fromUserId, packet.userProfile);
           this.notifyUsersChanged();
 
-          // Reply with self state so newly joined peer knows we are here
           this.sendSignalingPacket({
             type: 'peer-state',
             channelId: this.channelId,
@@ -279,7 +492,7 @@ export class WebRTCVoiceEngine {
             userProfile: this.userProfile!,
           });
 
-          // Operative with higher lexical ID initiates RTC Offer (avoids dual collision)
+          // Lexically higher ID initiates Offer
           if (this.currentUserId! > packet.fromUserId) {
             await this.initiatePeerConnection(packet.fromUserId);
           }
@@ -302,6 +515,8 @@ export class WebRTCVoiceEngine {
           pc.close();
           this.peerConnections.delete(packet.fromUserId);
         }
+        this.remoteStreams.delete(packet.fromUserId);
+        this.onRemoteStreamChanged?.(packet.fromUserId, null);
         this.notifyUsersChanged();
         break;
       }
@@ -332,17 +547,16 @@ export class WebRTCVoiceEngine {
   /**
    * Creates an RTCPeerConnection with Google STUN configuration
    */
-  private createPeerConnection(targetUserId: string): RTCPeerConnection {
+  public createPeerConnection(targetUserId: string): RTCPeerConnection {
     const pc = new RTCPeerConnection(GOOGLE_STUN_CONFIG);
 
-    // Attach local stream tracks
+    // Attach local stream tracks (Audio and Video)
     if (this.localStream) {
       this.localStream.getTracks().forEach((track) => {
         pc.addTrack(track, this.localStream!);
       });
     }
 
-    // ICE Candidate gathering handler
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         this.sendSignalingPacket({
@@ -355,9 +569,14 @@ export class WebRTCVoiceEngine {
       }
     };
 
-    // Remote audio track handler
+    // Remote audio & video track handler
     pc.ontrack = (event) => {
-      if (typeof document !== 'undefined' && event.streams[0]) {
+      const stream = event.streams[0] || new MediaStream([event.track]);
+      this.remoteStreams.set(targetUserId, stream);
+      this.onRemoteStreamChanged?.(targetUserId, stream);
+
+      // Play audio automatically if not video element
+      if (typeof document !== 'undefined' && event.track.kind === 'audio') {
         let remoteAudio = document.getElementById(`audio_peer_${targetUserId}`) as HTMLAudioElement;
         if (!remoteAudio) {
           remoteAudio = document.createElement('audio');
@@ -365,7 +584,7 @@ export class WebRTCVoiceEngine {
           remoteAudio.autoplay = true;
           document.body.appendChild(remoteAudio);
         }
-        remoteAudio.srcObject = event.streams[0];
+        remoteAudio.srcObject = stream;
         remoteAudio.muted = this.isDeafened;
       }
     };
@@ -373,6 +592,8 @@ export class WebRTCVoiceEngine {
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
         this.peerConnections.delete(targetUserId);
+        this.remoteStreams.delete(targetUserId);
+        this.onRemoteStreamChanged?.(targetUserId, null);
       }
     };
 
@@ -388,7 +609,7 @@ export class WebRTCVoiceEngine {
       const pc = this.createPeerConnection(targetUserId);
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
-        offerToReceiveVideo: false,
+        offerToReceiveVideo: true,
       });
       await pc.setLocalDescription(offer);
 
@@ -404,9 +625,6 @@ export class WebRTCVoiceEngine {
     }
   }
 
-  /**
-   * Responds to incoming SDP Offer with SDP Answer
-   */
   private async handleOffer(fromUserId: string, offer: RTCSessionDescriptionInit) {
     try {
       const pc = this.createPeerConnection(fromUserId);
@@ -426,9 +644,6 @@ export class WebRTCVoiceEngine {
     }
   }
 
-  /**
-   * Completes remote SDP Answer
-   */
   private async handleAnswer(fromUserId: string, answer: RTCSessionDescriptionInit) {
     try {
       const pc = this.peerConnections.get(fromUserId);
@@ -440,9 +655,6 @@ export class WebRTCVoiceEngine {
     }
   }
 
-  /**
-   * Adds remote ICE Candidate
-   */
   private async handleIceCandidate(fromUserId: string, candidate: RTCIceCandidateInit) {
     try {
       const pc = this.peerConnections.get(fromUserId);
@@ -454,9 +666,6 @@ export class WebRTCVoiceEngine {
     }
   }
 
-  /**
-   * Toggles microphone mute state
-   */
   public setMute(muted: boolean) {
     this.isMuted = muted;
     if (this.localStream) {
@@ -470,9 +679,6 @@ export class WebRTCVoiceEngine {
     this.broadcastState();
   }
 
-  /**
-   * Toggles deafen state
-   */
   public setDeafen(deafened: boolean) {
     this.isDeafened = deafened;
     if (deafened) {
@@ -491,13 +697,16 @@ export class WebRTCVoiceEngine {
   }
 
   /**
-   * Broadcasts operative state updates (mute, deafen, speaking)
+   * Broadcasts operative state updates (mute, deafen, speaking, camera, screen share)
    */
-  private broadcastState() {
+  public broadcastState() {
     if (!this.channelId || !this.userProfile) return;
     this.userProfile.isSpeaking = this.isSpeaking;
     this.userProfile.isMuted = this.isMuted;
     this.userProfile.isDeafened = this.isDeafened;
+    this.userProfile.isCameraOn = this.isCameraOn;
+    this.userProfile.isScreenSharing = this.isScreenSharing;
+
     this.activeUsers.set(this.userProfile.userId, { ...this.userProfile });
     this.notifyUsersChanged();
 
@@ -514,9 +723,82 @@ export class WebRTCVoiceEngine {
   }
 
   /**
-   * Leaves the voice channel and closes connections cleanly
+   * Web Audio API synthesized Ringtone Generator (Zero external audio asset cost)
+   */
+  public startRingtone(type: 'incoming' | 'outgoing' = 'incoming') {
+    this.stopRingtone();
+    if (typeof window === 'undefined') return;
+
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+
+      const playTone = () => {
+        if (ctx.state === 'closed') return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'incoming') {
+          // Cyberpunk dual-tone chime (440Hz & 554Hz)
+          osc.frequency.setValueAtTime(440, ctx.currentTime);
+          osc.frequency.setValueAtTime(554, ctx.currentTime + 0.15);
+        } else {
+          // Outgoing pulse tone (425Hz)
+          osc.frequency.setValueAtTime(425, ctx.currentTime);
+        }
+
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+
+        osc.start();
+        osc.stop(ctx.currentTime + 0.65);
+      };
+
+      playTone();
+      this.ringtoneInterval = setInterval(playTone, type === 'incoming' ? 2200 : 3000);
+    } catch {}
+  }
+
+  public stopRingtone() {
+    if (this.ringtoneInterval) {
+      clearInterval(this.ringtoneInterval);
+      this.ringtoneInterval = null;
+    }
+  }
+
+  /**
+   * Enumerates audio and video devices available on the system
+   */
+  public async enumerateDevices(): Promise<{
+    audioInputs: MediaDeviceInfo[];
+    videoInputs: MediaDeviceInfo[];
+    audioOutputs: MediaDeviceInfo[];
+  }> {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
+      return { audioInputs: [], videoInputs: [], audioOutputs: [] };
+    }
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      return {
+        audioInputs: devices.filter((d) => d.kind === 'audioinput'),
+        videoInputs: devices.filter((d) => d.kind === 'videoinput'),
+        audioOutputs: devices.filter((d) => d.kind === 'audiooutput'),
+      };
+    } catch {
+      return { audioInputs: [], videoInputs: [], audioOutputs: [] };
+    }
+  }
+
+  /**
+   * Leaves channel and cleans up all audio/video tracks and peer connections
    */
   public leaveChannel() {
+    this.stopRingtone();
+
     if (this.channelId && this.currentUserId) {
       this.sendSignalingPacket({
         type: 'peer-leave',
@@ -540,8 +822,14 @@ export class WebRTCVoiceEngine {
       this.localStream = null;
     }
 
+    if (this.localScreenStream) {
+      this.localScreenStream.getTracks().forEach((t) => t.stop());
+      this.localScreenStream = null;
+    }
+
     this.peerConnections.forEach((pc) => pc.close());
     this.peerConnections.clear();
+    this.remoteStreams.clear();
     this.activeUsers.clear();
 
     if (this.broadcastChannel) {
@@ -557,11 +845,12 @@ export class WebRTCVoiceEngine {
     this.channelId = null;
     this.currentUserId = null;
     this.userProfile = null;
+    this.isCameraOn = false;
+    this.isScreenSharing = false;
     this.onConnectionStateChanged?.('disconnected');
     this.notifyUsersChanged();
+    this.onLocalStreamChanged?.(null);
   }
 }
 
-// Global singleton instance for easy app-wide integration
 export const webrtcVoiceService = new WebRTCVoiceEngine();
-

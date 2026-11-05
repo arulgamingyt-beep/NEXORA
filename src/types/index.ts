@@ -183,11 +183,49 @@ export interface VoiceState {
   isMuted: boolean;
   isDeafened: boolean;
   isSpeaking: boolean;
+  isCameraOn?: boolean;
+  isScreenSharing?: boolean;
   activeUsers: {
     userId: string;
     displayName: string;
     avatar: string;
     isSpeaking: boolean;
+    isMuted?: boolean;
+    isDeafened?: boolean;
+    isCameraOn?: boolean;
+    isScreenSharing?: boolean;
   }[];
+}
+
+export type CallType = 'voice' | 'video';
+export type CallScope = 'direct' | 'group' | 'channel';
+export type CallStatus = 'ringing' | 'connected' | 'declined' | 'ended' | 'missed';
+
+export interface CallParticipant {
+  userId: string;
+  displayName: string;
+  avatar: string;
+  isMuted: boolean;
+  isCameraOn: boolean;
+  isScreenSharing: boolean;
+  isSpeaking: boolean;
+  joinedAt?: string;
+}
+
+export interface CallSession {
+  id: string;
+  type: CallType;
+  scope: CallScope;
+  targetId: string; // recipient userId, groupId, or channelId
+  targetName?: string;
+  callerId: string;
+  callerName: string;
+  callerAvatar: string;
+  participantIds: string[];
+  status: CallStatus;
+  createdAt: string;
+  startedAt?: string;
+  endedAt?: string;
+  durationSeconds?: number;
 }
 

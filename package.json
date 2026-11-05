@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit",
     "test:community": "tsx src/__tests__/community_test_suite.ts",
     "test:friends": "tsx src/__tests__/friends_dm_test_suite.ts",
-    "test:voice": "tsx src/__tests__/webrtc_voice_test_suite.ts"
+    "test:voice": "tsx src/__tests__/webrtc_voice_test_suite.ts",
+    "test:comm": "tsx src/__tests__/advanced_communication_test_suite.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
