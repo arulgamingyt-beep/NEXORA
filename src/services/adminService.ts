@@ -135,12 +135,6 @@ export class AdminService {
     if (user.email === 'admin@nexora.io' || user.id === 'nxr_demo_operative_01' || user.id === 'user_alex') {
       return 'super_admin';
     }
-    if (user.role === 'owner' || user.role === 'admin') {
-      return 'admin';
-    }
-    if (user.role === 'moderator') {
-      return 'moderator';
-    }
     return 'none';
   }
 

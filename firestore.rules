@@ -46,13 +46,13 @@ service cloud.firestore {
       return (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
               'platformRole' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data)
         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.platformRole
-        : (request.auth.token.email == 'admin@nexora.io' ? 'super_admin' : 'none');
+        : ((request.auth.token.email == 'admin@nexora.io' && request.auth.token.email_verified == true) ? 'super_admin' : 'none');
     }
 
     function isSuperAdmin() {
       return isSignedIn() && (
         getPlatformRole() == 'super_admin' ||
-        request.auth.token.email == 'admin@nexora.io' ||
+        (request.auth.token.email == 'admin@nexora.io' && request.auth.token.email_verified == true) ||
         request.auth.token.super_admin == true
       );
     }
@@ -78,7 +78,7 @@ service cloud.firestore {
 
     // 0. Connection Test
     match /test/{docId} {
-      allow read: if isSignedIn();
+      allow read: if true;
     }
 
     // 1. Users Collection
@@ -101,7 +101,7 @@ service cloud.firestore {
          (!('role' in request.resource.data) || request.resource.data.role == resource.data.role) &&
          (!('isSuspended' in request.resource.data) || request.resource.data.isSuspended == resource.data.isSuspended))
       );
-      allow delete: if isSuperAdmin();
+      allow delete: if isUser(userId) || isSuperAdmin();
 
       // Private settings subcollection - Protected for user only
       match /private/{docId} {

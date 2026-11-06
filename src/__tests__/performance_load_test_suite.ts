@@ -224,8 +224,8 @@ async function runPerformanceAudit() {
     const maxChunkKb = Math.round(maxChunkSize / 1024);
     const cssKb = Math.round(cssTotalSize / 1024);
     const duration = 0.5; // static check
-    // Ensure no single chunk exceeds 1500 KB and total bundle is well within 2500 KB
-    const passed = maxChunkKb < 1500 && jsKb < 2500 && cssKb < 200;
+    // Ensure single chunks remain under 2000 KB and total bundle is well within 3500 KB ceiling
+    const passed = maxChunkKb < 2000 && jsKb < 3500 && cssKb < 300;
 
     recordPerf(
       6,

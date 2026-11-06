@@ -58,6 +58,7 @@ import {
   updateProfile,
   setPersistence,
   browserLocalPersistence,
+  deleteUser,
   User as FirebaseUser,
 } from 'firebase/auth';
 import {
@@ -883,15 +884,20 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsAuthLoading(false);
     });
 
-    // Test Firestore connection
+    // Test Firestore connection with defensive timeout race
     const testConnection = async () => {
       try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Connection check timeout')), 4000)
+        );
+        await Promise.race([
+          getDocFromServer(doc(db, 'test', 'connection')),
+          timeoutPromise,
+        ]);
         setIsFirestoreConnected(true);
         setConnectionError(null);
       } catch (error: any) {
-        if (error instanceof Error && error.message.includes('the client is offline')) {
-          setConnectionError('Client offline: Check Firestore network configuration.');
+        if (error instanceof Error && (error.message.includes('the client is offline') || error.message.includes('Connection check timeout'))) {
           setIsFirestoreConnected(false);
         } else {
           setIsFirestoreConnected(true);
@@ -3601,77 +3607,36 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const lowerClean = cleanId.toLowerCase().replace(/^@/, '');
 
-    // Executive Leadership Sign-in (Normal User Login Flow)
-    // 1. Chairman and Founder (User ID: founderofnxr)
+    // Executive Leadership Sign-in mapping (Normal User Login Flow)
+    let targetEmail = cleanId;
+    let executiveAccountCategory: ExecutiveCategory | null = null;
+
     if (
       lowerClean === 'founderofnxr' ||
       lowerClean === 'founderofnxr@nexora.io' ||
       lowerClean === 'founder@nexora.io'
     ) {
-      const validPasswords = ['NexoraFounder2026!', 'founder2026', 'Nexora2026!', 'founderofnxr', 'NexoraExecutive2026!'];
-      if (validPasswords.includes(password)) {
-        const founder = await getOrCreateExecutiveAccount('founder');
-        const onlineProfile: User = { ...founder, status: 'online' };
-        setActiveVaultSession(onlineProfile);
-        setVaultUser(onlineProfile);
-        setCurrentUser(onlineProfile);
-        setAllUsers((prev) => ({ ...prev, [onlineProfile.id]: onlineProfile }));
-        try {
-          await setDoc(doc(db, 'users', onlineProfile.id), onlineProfile, { merge: true });
-        } catch {}
-        showToast(`Executive Link Verified: Welcome, Chairman & Founder (@founderofnxr)!`, 'success');
-        return;
-      }
-    }
-
-    // 2. CEO (User ID: ceoofnxr)
-    if (
+      targetEmail = 'founderofnxr@nexora.io';
+      executiveAccountCategory = 'founder';
+    } else if (
       lowerClean === 'ceoofnxr' ||
       lowerClean === 'ceo@nexora.io' ||
       lowerClean === 'cypher_ceo'
     ) {
-      const validPasswords = ['NexoraCEO2026!', 'ceo2026', 'Nexora2026!', 'ceoofnxr', 'NexoraExecutive2026!'];
-      if (validPasswords.includes(password)) {
-        const ceo = await getOrCreateExecutiveAccount('ceo');
-        const onlineProfile: User = { ...ceo, status: 'online' };
-        setActiveVaultSession(onlineProfile);
-        setVaultUser(onlineProfile);
-        setCurrentUser(onlineProfile);
-        setAllUsers((prev) => ({ ...prev, [onlineProfile.id]: onlineProfile }));
-        try {
-          await setDoc(doc(db, 'users', onlineProfile.id), onlineProfile, { merge: true });
-        } catch {}
-        showToast(`Executive Link Verified: Welcome, Chief Executive Officer (@ceoofnxr)!`, 'success');
-        return;
-      }
-    }
-
-    // 3. Managing Director (User ID: mdofnxr)
-    if (
+      targetEmail = 'ceo@nexora.io';
+      executiveAccountCategory = 'ceo';
+    } else if (
       lowerClean === 'mdofnxr' ||
       lowerClean === 'md@nexora.io' ||
       lowerClean === 'vanguard_md'
     ) {
-      const validPasswords = ['NexoraMD2026!', 'md2026', 'Nexora2026!', 'mdofnxr', 'NexoraExecutive2026!'];
-      if (validPasswords.includes(password)) {
-        const md = await getOrCreateExecutiveAccount('managing_director');
-        const onlineProfile: User = { ...md, status: 'online' };
-        setActiveVaultSession(onlineProfile);
-        setVaultUser(onlineProfile);
-        setCurrentUser(onlineProfile);
-        setAllUsers((prev) => ({ ...prev, [onlineProfile.id]: onlineProfile }));
-        try {
-          await setDoc(doc(db, 'users', onlineProfile.id), onlineProfile, { merge: true });
-        } catch {}
-        showToast(`Executive Link Verified: Welcome, Managing Director (@mdofnxr)!`, 'success');
-        return;
-      }
+      targetEmail = 'md@nexora.io';
+      executiveAccountCategory = 'managing_director';
     }
 
     // 2. Resolve target email (supports callsign @username or standard email address)
-    let targetEmail = cleanId;
-    if (!cleanId.includes('@')) {
-      const cleanUsername = cleanId.toLowerCase().replace(/^@/, '');
+    if (!targetEmail.includes('@')) {
+      const cleanUsername = targetEmail.toLowerCase().replace(/^@/, '');
       try {
         const q = query(collection(db, 'users'), where('username', '==', cleanUsername));
         const snap = await getDocs(q);
@@ -3691,8 +3656,25 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    // 3. Authenticate directly via Firebase Authentication (No silent suppression!)
-    const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password);
+    // 3. Authenticate directly via Firebase Authentication
+    let userCredential;
+    try {
+      userCredential = await signInWithEmailAndPassword(auth, targetEmail, password);
+    } catch (fbErr: any) {
+      if (executiveAccountCategory) {
+        const verifiedUser = await verifyVaultCredentials(targetEmail, password);
+        if (verifiedUser) {
+          const onlineProfile: User = { ...verifiedUser, status: 'online' };
+          setActiveVaultSession(onlineProfile);
+          setVaultUser(onlineProfile);
+          setCurrentUser(onlineProfile);
+          setAllUsers((prev) => ({ ...prev, [onlineProfile.id]: onlineProfile }));
+          showToast(`Executive Link Verified: Welcome, ${onlineProfile.displayName}!`, 'success');
+          return;
+        }
+      }
+      throw fbErr;
+    }
     const fbUser = userCredential.user;
     setAuthUser(fbUser);
     setVaultUser(null);
@@ -4048,10 +4030,17 @@ export const NexoraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         localStorage.removeItem('nexora_active_session_v1');
       } catch {}
 
-      // 6. Sign out from Firebase Auth
+      // 6. Delete user credential from Firebase Auth if currently active
       try {
-        await firebaseSignOut(auth);
-      } catch {}
+        if (auth.currentUser && auth.currentUser.uid === userId) {
+          await deleteUser(auth.currentUser);
+        } else {
+          await firebaseSignOut(auth);
+        }
+      } catch (authErr) {
+        console.warn('[AccountDeletion] Firebase auth deletion notice:', authErr);
+        await firebaseSignOut(auth).catch(() => {});
+      }
 
       showToast('Operative account and associated personal data permanently expunged.', 'info');
       return { success: true, message: 'Account permanently expunged.' };
